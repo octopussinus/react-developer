@@ -13,7 +13,7 @@ Narzędzie zapewnia krok po kroku workflow, który gwarantuje spójny i wysokiej
 ### Instalacja z Git
 
 ```bash
-uv tool install react-developer --from git+https://gitlab.pwo.assecods.pl/architektura/ai/react-developer.git
+uv tool install react-developer --from https://github.com/Mil000D/react-developer.git
 ```
 
 ## Szybki Start
@@ -133,7 +133,11 @@ Po zainicjalizowaniu projektu, narzędzie wygeneruje komendy AI dla wybranego as
 
 **Kiedy używać:** Do tworzenia kompletnych stron lub widoków aplikacji
 
-### Krok 5: Aktualizacje i Modyfikacje
+### Utrzymanie i Konfiguracja (Opcjonalne)
+
+Poniższe komendy są pomocnicze i można ich używać w dowolnym momencie rozwoju projektu.
+
+#### Aktualizacje i Modyfikacje
 ```
 /react-page-updater
 ```
@@ -142,7 +146,23 @@ Po zainicjalizowaniu projektu, narzędzie wygeneruje komendy AI dla wybranego as
 - Modyfikuje funkcjonalność zachowując strukturę
 - Obsługuje skoordynowane zmiany UI i logiki
 
-**Kiedy używać:** Gdy musisz zaktualizować lub zmodyfikować istniejący kod
+#### Dodawanie Języków
+```
+/react-language-creator
+```
+**Co robi:**
+- Dodaje nowe języki do projektu
+- Automatycznie wykrywa istniejące przestrzenie nazw (namespaces)
+- Generuje poprawne pliki tłumaczeń w oparciu o strukturę języka referencyjnego
+
+#### Tworzenie Motywów
+```
+/react-theme-creator
+```
+**Co robi:**
+- Tworzy kompleksowe definicje motywów (kolory, style)
+- Generuje palety kolorów (12 odcieni)
+- Dodaje motyw do konfiguracji aplikacji
 
 ## Przykładowy Przepływ Pracy
 
@@ -161,6 +181,10 @@ Po zainicjalizowaniu projektu, narzędzie wygeneruje komendy AI dla wybranego as
    - `/react-page-developer` - Stwórz kompletną stronę listy produktów
 
 4. **Testuj i iteruj** używając `/react-page-updater` gdy potrzebne są zmiany
+
+5. **Konfiguracja (Opcjonalnie):**
+   - `/react-language-creator` - Dodaj kolejne języki (np. niemiecki, hiszpański)
+   - `/react-theme-creator` - Stwórz unikalny motyw dla swojego sklepu
 
 ### Przykład dla React Native / Expo
 
