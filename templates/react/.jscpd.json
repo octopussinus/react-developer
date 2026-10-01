@@ -1,7 +1,13 @@
 {
   "threshold": 3,
   "reporters": ["console"],
-  "ignore": ["**/*.test.tsx", "**/*.test.ts", "**/*.stories.tsx", "**/generated/**"],
+  "ignore": [
+    "**/*.test.tsx",
+    "**/*.test.ts",
+    "**/*.stories.tsx",
+    "**/generated/**",
+    "**/.react-dev-backup/**"
+  ],
   "absolute": true,
   "gitignore": true
 }

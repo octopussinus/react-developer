@@ -631,12 +631,46 @@ lasts the project. That ladder is the whole idea.
 | Agent wants `any` / `@ts-ignore`          | it is stuck                   | ask it to explain the type error. Do not grant the exception           |
 | `shadcn add` keeps adding a `cn` package  | upstream dependency           | safe to remove; your `@/lib/cn` already provides it                    |
 
-**Health check any time:**
+## 9b. Updating react-dev
+
+After upgrading the CLI, existing projects need a look. The two commands do
+different jobs, and the difference matters:
 
 ```bash
-react-dev doctor        # 19 invariants
-react-dev sync          # reinstall skills + agent wiring; never touches AGENTS.md
+react-dev doctor        # what is wrong
+react-dev sync          # fix the half that can be fixed automatically
 ```
+
+| `sync` **does** update                        | `sync` **never** touches                       |
+| --------------------------------------------- | ---------------------------------------------- |
+| `.agents/skills/` (new and changed skills)    | `package.json` scripts                         |
+| `.claude/skills/`, `.gemini/commands/` wiring | `tools/gen/index.mjs`                          |
+| `CLAUDE.md` / `GEMINI.md` links               | `src/`, `eslint.config.js`, anything you wrote |
+| the version stamp in `.react-dev.json`        | `AGENTS.md` — your rules are yours             |
+
+That is deliberate: sync must not clobber your code. But it leaves a trap — new
+skills telling the agent to run `npm run gen -- mock` in a project whose
+generator predates that target. The agent then runs a command that does not
+exist.
+
+**So `doctor` checks for capability drift**, not just agent wiring:
+
+```
+● cli version                 template stamped 0.9.0, CLI is 1.0.0
+● npm run visual              missing - screenshot baselines (react-verify step 4)
+● generator targets           missing: promote, mock
+● src/testing/mocks/server.ts missing - MSW for Vitest
+```
+
+Run `sync` first — it clears the skill and version rows. Whatever remains is
+**template** drift, and the fix is manual:
+
+- **Few gaps:** copy the missing surface across from a freshly generated project.
+- **Many gaps:** generate a new project and move your `src/features/*` into it.
+  The boundary lint rules will tell you exactly where each piece is allowed to
+  live, so this is more mechanical than it sounds.
+
+**Health check any time:** `react-dev doctor`
 
 ---
 

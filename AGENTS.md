@@ -32,6 +32,19 @@ tests/                pytest — 22 tests
 - **Printed command names must be derived from the files written**, never
   hardcoded. That mismatch shipped once already.
 
+## Updating an installed CLI
+
+```bash
+uv build --wheel && uv tool install --reinstall ./dist/react_developer-1.0.0-py3-none-any.whl
+```
+
+`sync` updates skills and agent wiring in existing projects but never project
+code, so **any new template surface a skill depends on must be added to
+`REQUIRED_SCRIPTS` / `REQUIRED_GEN_TARGETS` / `REQUIRED_PATHS` in
+`src/react_dev/project.py`.** Otherwise `doctor` reports a drifted project as
+healthy while the agent runs commands it does not have — which is exactly the
+failure those lists exist to catch.
+
 ## Verifying a change
 
 ```bash

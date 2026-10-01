@@ -24,10 +24,10 @@ from rich.table import Table
 from typer.core import TyperGroup
 
 from .agents import AGENTS, CANONICAL_SKILLS_DIR, DEFAULT_AGENTS, emit_for_agent, read_skill_frontmatter
-from .project import MANIFEST, diagnose, read_manifest, write_manifest
+from .project import MANIFEST, diagnose, read_manifest, template_fingerprint, write_manifest
 from .ui import StepTracker, console, select_with_arrows, show_banner
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 PROJECT_TYPES = {
     "react": "React (Vite) — web, feature-sliced, TanStack Query + Zod",
@@ -128,6 +128,63 @@ def _first_sentence(text: str, limit: int = 58) -> str:
     if len(sentence) <= limit:
         return sentence
     return sentence[:limit].rsplit(" ", 1)[0] + "…"
+
+
+
+#: One backup directory per sync run, so a run is reversible as a unit.
+_BACKUP_STAMP = __import__("datetime").datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def _add_missing_template_files(
+    project: Path, template_root: Path, user_owned: set[str], *, force: bool = False
+) -> tuple[list[str], list[str]]:
+    """Copy template files the project lacks.
+
+    Create-only by default: anything that exists and differs is reported, not
+    touched -- it may be the user's edit or a template change they still need,
+    and only they can tell which. Silently discarding work is worse than
+    leaving a known gap.
+
+    With ``force``, differing files ARE overwritten -- but every original is
+    copied into ``.react-dev-backup/<timestamp>/`` first, so the operation is
+    always reversible.
+
+    Returns (added, differing-or-overwritten).
+    """
+    skip = {"node_modules", "dist", "coverage", "playwright-report",
+            "test-results", "storybook-static", "__pycache__"}
+    # Build artefacts and lockfiles always differ and mean nothing here.
+    skip_suffix = (".tsbuildinfo",)
+    skip_names = {"package-lock.json"}
+    added: list[str] = []
+    differing: list[str] = []
+
+    if not template_root.is_dir():
+        return added, differing
+
+    for source in sorted(p for p in template_root.rglob("*") if p.is_file()):
+        relative = source.relative_to(template_root)
+        if any(part in skip for part in relative.parts):
+            continue
+        if relative.name.endswith(skip_suffix) or relative.name in skip_names:
+            continue
+        if str(relative) in user_owned:
+            continue
+
+        target = project / relative
+        if not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            added.append(str(relative))
+        elif target.read_bytes() != source.read_bytes():
+            differing.append(str(relative))
+            if force:
+                backup = project / ".react-dev-backup" / _BACKUP_STAMP / relative
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(target, backup)
+                shutil.copy2(source, target)
+
+    return added, differing
 
 
 def _tool_exists(name: str) -> bool:
@@ -233,7 +290,8 @@ def init(
 
             tracker.start("manifest")
             write_manifest(project, cli_version=__version__, project_type=project_type,
-                           agents=selected, skills=skills)
+                           agents=selected, skills=skills,
+                           fingerprint=template_fingerprint(template_root / project_type))
             tracker.complete("manifest", MANIFEST)
 
             if no_git:
@@ -335,7 +393,11 @@ def doctor(
     path: Path = typer.Argument(Path.cwd(), help="Project to check."),
 ):
     """Check a generated project against the invariants the workflow depends on."""
-    findings = diagnose(path)
+    try:
+        template_root = _asset_root("templates") / (read_manifest(path) or {}).get("projectType", "react")
+    except FileNotFoundError:
+        template_root = None
+    findings = diagnose(path, cli_version=__version__, template_root=template_root)
     if not findings:
         console.print("[yellow]Nothing to check — is this a react-dev project?[/yellow]")
         raise typer.Exit(1)
@@ -355,7 +417,12 @@ def doctor(
     console.print(Panel(table, title=f"Doctor — {path.resolve().name}", border_style=border, padding=(1, 2)))
     console.print(f"{errors} error(s), {warns} warning(s)")
     if errors:
-        console.print("[bright_black]Most errors are fixed by `react-dev sync`.[/bright_black]")
+        console.print(
+            "[bright_black]Agent wiring errors are fixed by `react-dev sync`.\n"
+            "Missing scripts, generator targets or template paths are NOT - sync never\n"
+            "touches project code. Generate a fresh project and port your src/features\n"
+            "across, or copy the missing surface in by hand.[/bright_black]"
+        )
         raise typer.Exit(1)
 
 
@@ -363,6 +430,15 @@ def doctor(
 def sync(
     path: Path = typer.Argument(Path.cwd(), help="Project to sync."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would change."),
+    with_template: bool = typer.Option(
+        False, "--with-template",
+        help="Also ADD template files the project is missing. Never overwrites anything.",
+    ),
+    force_template: bool = typer.Option(
+        False, "--force-template",
+        help="Also OVERWRITE template files that differ. Originals are backed up "
+             "to .react-dev-backup/. Only safe if you have not edited them.",
+    ),
 ):
     """Re-install canonical skills and agent wiring from the installed CLI version.
 
@@ -376,6 +452,7 @@ def sync(
 
     selected = [a for a in manifest.get("agents", list(DEFAULT_AGENTS)) if a in AGENTS]
     skills_root = _asset_root("skills")
+    template_source = _asset_root("templates")
     skills = _skill_names(skills_root)
     was = set(manifest.get("skills", []))
     user_owned = set(manifest.get("userOwned", ("AGENTS.md",)))
@@ -407,8 +484,54 @@ def sync(
     for key in selected:
         emit_for_agent(path, AGENTS[key], skills)
 
-    write_manifest(path, cli_version=__version__, project_type=manifest.get("projectType", "react"),
-                   agents=selected, skills=skills)
+    project_type = manifest.get("projectType", "react")
+    template_root = template_source / project_type
+    added, differing = ([], [])
+
+    if force_template:
+        with_template = True
+
+    if with_template:
+        added, differing = _add_missing_template_files(
+            path, template_root, user_owned, force=force_template
+        )
+
+    # Only stamp the new fingerprint once nothing needs a human. Stamping while
+    # files still differ would silence the warning without fixing anything.
+    resolved = with_template and (force_template or not differing)
+    fingerprint = (
+        template_fingerprint(template_root)
+        if resolved and template_root.is_dir()
+        else manifest.get("templateFingerprint")
+    )
+
+    write_manifest(path, cli_version=__version__, project_type=project_type,
+                   agents=selected, skills=skills, fingerprint=fingerprint)
+
+    if with_template:
+        if added:
+            console.print(Panel(
+                "\n".join(f"[green]+[/green] {a}" for a in added[:40])
+                + (f"\n[bright_black]…and {len(added) - 40} more[/bright_black]" if len(added) > 40 else ""),
+                title=f"Added {len(added)} missing file(s)", border_style="green", padding=(1, 2)))
+        else:
+            console.print("[bright_black]No missing template files.[/bright_black]")
+
+        if differing and force_template:
+            console.print(Panel(
+                "\n".join(f"[yellow]~[/yellow] {d}" for d in differing[:30])
+                + (f"\n[bright_black]…and {len(differing) - 30} more[/bright_black]" if len(differing) > 30 else "")
+                + f"\n\n[bright_black]Originals saved to .react-dev-backup/{_BACKUP_STAMP}/[/bright_black]",
+                title=f"Overwrote {len(differing)} file(s)", border_style="yellow", padding=(1, 2)))
+        elif differing:
+            console.print(Panel(
+                "\n".join(f"[yellow]~[/yellow] {d}" for d in differing[:30])
+                + (f"\n[bright_black]…and {len(differing) - 30} more[/bright_black]" if len(differing) > 30 else "")
+                + "\n\n[bright_black]These exist and differ, so they were left alone -- they may be\n"
+                  "your edits, or template changes you still need. Diff them against a\n"
+                  "freshly generated project. The fingerprint stays stale until none remain.[/bright_black]",
+                title=f"{len(differing)} file(s) need a human", border_style="yellow", padding=(1, 2)))
+
     console.print("[green]Synced.[/green] Run [cyan]react-dev doctor[/cyan] to confirm.")
 
 

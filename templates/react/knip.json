@@ -13,7 +13,7 @@
   "paths": {
     "@/*": ["./src/*"]
   },
-  "ignore": ["src/types/**"],
+  "ignore": ["src/types/**", ".react-dev-backup/**"],
   "ignoreDependencies": ["tailwindcss", "@tanstack/react-query-devtools", "tw-animate-css"],
   "ignoreExportsUsedInFile": true
 }

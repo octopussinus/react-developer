@@ -10,3 +10,6 @@ storybook-static
 reports
 *.local
 .DS_Store
+
+# Originals saved by `react-dev sync --force-template`.
+.react-dev-backup/
