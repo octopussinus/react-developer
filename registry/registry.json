@@ -1,0 +1,106 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "react-dev",
+  "homepage": "https://github.com/Mil000D/react-developer",
+  "items": [
+    {
+      "name": "chart",
+      "type": "registry:component",
+      "title": "Chart",
+      "description": "Line, bar and area chart on a validated colourblind-safe palette, with a mandatory table view. A molecule.",
+      "dependencies": [
+        "recharts"
+      ],
+      "files": [
+        {
+          "path": "items/chart.tsx",
+          "type": "registry:component",
+          "target": "@components/molecules/chart.tsx"
+        },
+        {
+          "path": "items/chart.stories.tsx",
+          "type": "registry:file",
+          "target": "@components/molecules/chart.stories.tsx"
+        },
+        {
+          "path": "items/chart.test.tsx",
+          "type": "registry:file",
+          "target": "@components/molecules/chart.test.tsx"
+        }
+      ],
+      "categories": [
+        "charts",
+        "molecules"
+      ],
+      "meta": {
+        "atomicLayer": "molecule",
+        "why": "Composes atoms, carries no domain knowledge, reusable across features."
+      }
+    },
+    {
+      "name": "data-table",
+      "type": "registry:component",
+      "title": "Data table",
+      "description": "Sortable, accessible table with loading and empty states. An organism \u2014 it owns state and composes molecules.",
+      "registryDependencies": [],
+      "files": [
+        {
+          "path": "items/data-table.tsx",
+          "type": "registry:component",
+          "target": "@components/organisms/data-table.tsx"
+        },
+        {
+          "path": "items/data-table.stories.tsx",
+          "type": "registry:file",
+          "target": "@components/organisms/data-table.stories.tsx"
+        },
+        {
+          "path": "items/data-table.test.tsx",
+          "type": "registry:file",
+          "target": "@components/organisms/data-table.test.tsx"
+        }
+      ],
+      "categories": [
+        "tables",
+        "organisms"
+      ],
+      "meta": {
+        "atomicLayer": "organism",
+        "why": "A distinct section of UI that owns sorting state and composes molecules."
+      }
+    },
+    {
+      "name": "theme-toggle",
+      "type": "registry:component",
+      "title": "Theme toggle",
+      "description": "Three-way light/system/dark control driving the .dark class that shadcn components depend on. A molecule.",
+      "dependencies": [
+        "zustand"
+      ],
+      "files": [
+        {
+          "path": "items/theme-toggle.tsx",
+          "type": "registry:component",
+          "target": "@components/molecules/theme-toggle.tsx"
+        },
+        {
+          "path": "items/theme-toggle.stories.tsx",
+          "type": "registry:file",
+          "target": "@components/molecules/theme-toggle.stories.tsx"
+        },
+        {
+          "path": "items/theme-toggle.test.tsx",
+          "type": "registry:file",
+          "target": "@components/molecules/theme-toggle.test.tsx"
+        }
+      ],
+      "categories": [
+        "molecules"
+      ],
+      "meta": {
+        "atomicLayer": "molecule",
+        "why": "Composes atoms and reads one store; no domain knowledge."
+      }
+    }
+  ]
+}

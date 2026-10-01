@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh bg-background">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-card focus:px-4 focus:py-2"
       >
         {t('skipToContent')}
       </a>

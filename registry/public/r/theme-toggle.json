@@ -1,0 +1,37 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "theme-toggle",
+  "title": "Theme toggle",
+  "description": "Three-way light/system/dark control driving the .dark class that shadcn components depend on. A molecule.",
+  "dependencies": [
+    "zustand"
+  ],
+  "files": [
+    {
+      "path": "items/theme-toggle.tsx",
+      "content": "import { useTheme, type ThemePreference } from '@/lib/theme';\nimport { cn } from '@/lib/cn';\n\n/**\n * ThemeToggle — a molecule. Drives the `.dark` class that every shadcn\n * component's `dark:` variants depend on.\n *\n * A three-way control, not a switch: 'system' must stay reachable, because a\n * two-state toggle silently opts the user out of following their OS.\n */\n\nconst OPTIONS: readonly { value: ThemePreference; label: string }[] = [\n  { value: 'light', label: 'Light' },\n  { value: 'system', label: 'System' },\n  { value: 'dark', label: 'Dark' },\n];\n\nexport function ThemeToggle({ className }: { className?: string }) {\n  const preference = useTheme((state) => state.preference);\n  const setPreference = useTheme((state) => state.setPreference);\n\n  return (\n    // radiogroup, not a row of buttons: exactly one is selected, and screen\n    // readers should announce it that way.\n    <div\n      role=\"radiogroup\"\n      aria-label=\"Colour scheme\"\n      className={cn('inline-flex rounded-md border border-input bg-background p-0.5', className)}\n    >\n      {OPTIONS.map((option) => {\n        const selected = preference === option.value;\n        return (\n          <button\n            key={option.value}\n            type=\"button\"\n            role=\"radio\"\n            aria-checked={selected}\n            onClick={() => setPreference(option.value)}\n            className={cn(\n              'min-h-8 rounded-sm px-3 text-xs font-medium transition-colors',\n              selected\n                ? 'bg-accent text-accent-foreground'\n                : 'text-muted-foreground hover:text-foreground',\n            )}\n          >\n            {option.label}\n          </button>\n        );\n      })}\n    </div>\n  );\n}\n",
+      "type": "registry:component",
+      "target": "@components/molecules/theme-toggle.tsx"
+    },
+    {
+      "path": "items/theme-toggle.stories.tsx",
+      "content": "import type { Meta, StoryObj } from '@storybook/react-vite';\nimport { ThemeToggle } from '@/components/molecules/theme-toggle';\n\nconst meta = {\n  title: 'Molecules/ThemeToggle',\n  component: ThemeToggle,\n  tags: ['autodocs'],\n} satisfies Meta<typeof ThemeToggle>;\n\nexport default meta;\ntype Story = StoryObj<typeof meta>;\n\nexport const Default: Story = {};\n",
+      "type": "registry:file",
+      "target": "@components/molecules/theme-toggle.stories.tsx"
+    },
+    {
+      "path": "items/theme-toggle.test.tsx",
+      "content": "import { describe, expect, it } from 'vitest';\nimport { render, screen, userEvent } from '@/testing/render';\nimport { ThemeToggle } from '@/components/molecules/theme-toggle';\n\ndescribe('ThemeToggle', () => {\n  it('is a radiogroup with exactly one selected option', () => {\n    render(<ThemeToggle />);\n\n    expect(screen.getByRole('radiogroup', { name: 'Colour scheme' })).toBeInTheDocument();\n    const selected = screen\n      .getAllByRole('radio')\n      .filter((r) => r.getAttribute('aria-checked') === 'true');\n    expect(selected).toHaveLength(1);\n  });\n\n  it('keeps \"system\" reachable so users can defer to the OS', () => {\n    render(<ThemeToggle />);\n    expect(screen.getByRole('radio', { name: 'System' })).toBeInTheDocument();\n  });\n\n  it('applies the .dark class when dark is chosen, and removes it for light', async () => {\n    render(<ThemeToggle />);\n\n    await userEvent.click(screen.getByRole('radio', { name: 'Dark' }));\n    expect(document.documentElement).toHaveClass('dark');\n\n    await userEvent.click(screen.getByRole('radio', { name: 'Light' }));\n    expect(document.documentElement).not.toHaveClass('dark');\n  });\n});\n",
+      "type": "registry:file",
+      "target": "@components/molecules/theme-toggle.test.tsx"
+    }
+  ],
+  "meta": {
+    "atomicLayer": "molecule",
+    "why": "Composes atoms and reads one store; no domain knowledge."
+  },
+  "categories": [
+    "molecules"
+  ],
+  "type": "registry:component"
+}

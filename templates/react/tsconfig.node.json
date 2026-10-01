@@ -1,7 +1,8 @@
 {
+  "_comment": "DOM is in lib because Playwright page.evaluate() callbacks execute in the browser and legitimately touch document/window.",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023"],
+    "lib": ["ES2023", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "types": ["node"],

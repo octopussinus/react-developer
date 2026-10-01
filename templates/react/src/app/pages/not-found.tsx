@@ -12,8 +12,8 @@ export function NotFound() {
       <Link
         to="/"
         className={cn(
-          'inline-flex min-h-11 items-center justify-center rounded-control px-4',
-          'bg-primary text-sm font-medium text-primary-foreground hover:bg-primary-hover',
+          'inline-flex min-h-11 items-center justify-center rounded-md px-4',
+          'bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90',
         )}
       >
         {t('backToHome')}

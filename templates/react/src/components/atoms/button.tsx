@@ -10,10 +10,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 /* Roles, never palette ramps -- so dark mode needs no `dark:` variant here. */
 const variants = {
-  primary: 'bg-primary text-primary-foreground hover:bg-primary-hover',
-  secondary: 'bg-surface-muted text-foreground border border-border hover:bg-surface',
-  ghost: 'text-foreground hover:bg-surface-muted',
-  danger: 'bg-status-danger text-primary-foreground hover:opacity-90',
+  primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+  secondary: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+  ghost: 'hover:bg-accent hover:text-accent-foreground',
+  danger: 'bg-destructive text-white hover:bg-destructive/90',
 } as const;
 
 const sizes = {
@@ -41,7 +41,7 @@ export function Button({
       aria-busy={isLoading}
       disabled={disabled === true || isLoading}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-control font-medium',
+        'inline-flex items-center justify-center gap-2 rounded-md font-medium',
         'transition-colors disabled:pointer-events-none disabled:opacity-50',
         variants[variant],
         sizes[size],

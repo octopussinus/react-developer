@@ -2,8 +2,12 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/index.css';
 import './config/i18n';
+import { initTheme } from './lib/theme';
 import { Providers } from './app/providers';
 import { AppRouter } from './app/router';
+
+// Before render, so there is no flash of the wrong scheme.
+initTheme();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('#root not found in index.html');

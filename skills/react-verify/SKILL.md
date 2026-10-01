@@ -32,20 +32,28 @@ memory, without running anything.
    ```
    The bar is zero `critical` and zero `serious` axe violations. Report
    `moderate` ones; do not silence them.
-4. **Visual proof.** Start the dev server, then drive a real browser with the
+4. **Visual regression.**
+   ```bash
+   npm run visual
+   ```
+   Baselines are committed per platform. A diff is a finding, not a nuisance:
+   look at `test-results/` before deciding. Only run `npm run visual:update`
+   when the change is intended, and say in your report that you did.
+
+5. **Visual proof.** Start the dev server, then drive a real browser with the
    Playwright MCP tools (`.mcp.json` ships configured):
    - navigate to the new route
    - take an accessibility snapshot — cheap, structured, and assertable
    - screenshot at 375, 768 and 1440 px
    - check the console for errors; a clean-looking page with a red console is
      not a working page
-5. **Mutation check on the diff** when logic changed:
+6. **Mutation check on the diff** when logic changed:
    ```bash
    npm run test:mutation
    ```
    Surviving mutants mean the tests do not actually test. Strengthen the
    assertions; do not raise the threshold.
-6. **Record it.** Write the real results into
+7. **Record it.** Write the real results into
    `specs/NNN-<slug>/review.md` under `## Automated verification`, including
    the exact commands.
 
@@ -70,6 +78,7 @@ memory, without running anything.
 | e2e       | FAIL   | orders.spec.ts:18 timeout   |
 | a11y      | pass   | 0 critical, 0 serious       |
 | visual    | pass   | 3 widths, console clean     |
+| visual    | pass   | 12 baselines, no diff       |
 | mutation  | pass   | 2 survivors, both addressed |
 ```
 

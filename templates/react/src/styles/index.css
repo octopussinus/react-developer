@@ -1,80 +1,176 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
 
 /*
- * Two layers, and the distinction is the point:
- *   1. palette  -- raw ramps. Never referenced from a component.
- *   2. roles    -- what components actually use. Swapping a role restyles the
- *                  whole app; that is why dark mode needs no `dark:` variants.
+ * shadcn/ui-compatible theme (Tailwind v4).
+ *
+ * The token NAMES and the :root/.dark + @theme inline structure are shadcn's,
+ * taken from what `shadcn init` generates. That compatibility is the whole
+ * point: components pulled from any shadcn registry reference `bg-card`,
+ * `border-input`, `ring-ring` and friends, so sharing this vocabulary is what
+ * makes them drop in and look native. Rename a token and every future
+ * `shadcn add` breaks.
+ *
+ * Customised here: `primary` carries a brand hue instead of shadcn's neutral,
+ * and `status-success` / `status-warning` are additions -- shadcn ships only
+ * `destructive`, which is not enough for real status UI.
+ *
+ * Dark mode is the `.dark` class (shadcn's convention), set on <html> by
+ * `src/lib/theme.ts`. Registry items that inject `cssVars` write into these
+ * same two blocks.
  */
-@theme {
-  /* 1. palette (OKLCH: interpolates cleanly, consistent perceived lightness) */
-  --color-brand-50: oklch(97% 0.015 264);
-  --color-brand-100: oklch(93% 0.035 264);
-  --color-brand-300: oklch(80% 0.1 264);
-  --color-brand-500: oklch(62% 0.19 264);
-  --color-brand-600: oklch(55% 0.19 264);
-  --color-brand-900: oklch(32% 0.12 264);
 
-  --color-neutral-0: oklch(100% 0 0);
-  --color-neutral-50: oklch(98% 0.002 264);
-  --color-neutral-100: oklch(96% 0.004 264);
-  --color-neutral-200: oklch(92% 0.006 264);
-  --color-neutral-400: oklch(70% 0.012 264);
-  --color-neutral-600: oklch(52% 0.014 264);
-  --color-neutral-800: oklch(28% 0.014 264);
-  --color-neutral-900: oklch(20% 0.012 264);
-  --color-neutral-950: oklch(14% 0.01 264);
+@custom-variant dark (&:is(.dark *));
 
-  /* 2. roles -- light scheme */
-  --color-background: var(--color-neutral-50);
-  --color-foreground: var(--color-neutral-900);
-  --color-surface: var(--color-neutral-0);
-  --color-surface-muted: var(--color-neutral-100);
-  --color-border: var(--color-neutral-200);
-  --color-muted-foreground: var(--color-neutral-600);
-  --color-primary: var(--color-brand-500);
-  --color-primary-hover: var(--color-brand-600);
-  --color-primary-foreground: var(--color-neutral-0);
-  --color-status-success: oklch(65% 0.16 150);
-  --color-status-warning: oklch(72% 0.16 70);
-  --color-status-danger: oklch(58% 0.21 25);
-  --color-focus: var(--color-brand-500);
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
-  --radius-card: 0.75rem;
-  --radius-control: 0.5rem;
+  /* Additions: shadcn has only `destructive`. */
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+
   --spacing-gutter: 1rem;
 }
 
-/* Role overrides only. Never redefine the palette per scheme. */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.52 0.19 264);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.52 0.19 264);
+
+  --status-success: oklch(0.55 0.15 150);
+  --status-warning: oklch(0.6 0.14 70);
+
+  /*
+   * Categorical chart palette -- VALIDATED, do not hand-edit.
+   * These are hex, not oklch, deliberately: they are documented values that
+   * passed the computable checks, and re-expressing them risks rounding drift.
+   * Re-run after ANY change:
+   *   node validate_palette.js "#2a78d6,#eb6834,#1baf7a,#eda100,#e87ba4" \
+   *     --mode light --surface "#ffffff"
+   * My first attempt at these failed two hard gates (CVD separation 5.4,
+   * normal-vision 12.6) -- evenly spaced hues are not the same as separable ones.
+   * Light mode carries a sub-3:1 contrast WARN on aqua/yellow/magenta, which is
+   * why Chart ships a table view: that is the documented relief.
+   */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+
+  --radius: 0.625rem;
+
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.52 0.19 264);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.52 0.19 264);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.78 0.12 264);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.78 0.12 264);
+
+  --status-success: oklch(0.7 0.14 150);
+  --status-warning: oklch(0.78 0.13 70);
+
+  /*
+   * The same five hues re-stepped for the dark surface -- a selected palette,
+   * not an automatic flip. Validated against --card (#171717):
+   *   node validate_palette.js "#3987e5,#d95926,#199e70,#c98500,#d55181" \
+   *     --mode dark --surface "#171717"
+   * All checks pass, including contrast.
+   */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.78 0.12 264);
+  --sidebar-primary-foreground: oklch(0.205 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.78 0.12 264);
+}
+
 @layer base {
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme='light']) {
-      --color-background: var(--color-neutral-950);
-      --color-foreground: var(--color-neutral-100);
-      --color-surface: var(--color-neutral-900);
-      --color-surface-muted: var(--color-neutral-800);
-      --color-border: var(--color-neutral-800);
-      --color-muted-foreground: var(--color-neutral-400);
-      --color-primary: var(--color-brand-300);
-      --color-primary-hover: var(--color-brand-100);
-      --color-primary-foreground: var(--color-neutral-950);
-    }
-  }
-
-  :root[data-theme='dark'] {
-    --color-background: var(--color-neutral-950);
-    --color-foreground: var(--color-neutral-100);
-    --color-surface: var(--color-neutral-900);
-    --color-surface-muted: var(--color-neutral-800);
-    --color-border: var(--color-neutral-800);
-    --color-muted-foreground: var(--color-neutral-400);
-    --color-primary: var(--color-brand-300);
-    --color-primary-hover: var(--color-brand-100);
-    --color-primary-foreground: var(--color-neutral-950);
-  }
-
-  html {
-    color-scheme: light dark;
+  * {
+    @apply border-border outline-ring/50;
   }
 
   body {
@@ -83,6 +179,6 @@
 
   /* Visible focus is an accessibility requirement, not a preference. */
   :focus-visible {
-    @apply outline-focus outline-2 outline-offset-2;
+    @apply outline-ring outline-2 outline-offset-2;
   }
 }

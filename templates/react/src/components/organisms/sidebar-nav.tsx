@@ -26,10 +26,10 @@ export function SidebarNav({ className }: { className?: string }) {
               to={route.path}
               className={({ isActive }) =>
                 cn(
-                  'block rounded-control px-3 py-2 text-sm font-medium transition-colors',
+                  'block rounded-md px-3 py-2 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-surface-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-surface-muted hover:text-foreground',
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )
               }
             >

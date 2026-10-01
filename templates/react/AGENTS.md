@@ -34,17 +34,48 @@ two or more → promote it to the right atomic layer.
 
 ## Commands
 
-| Command                        | Use                                                      |
-| ------------------------------ | -------------------------------------------------------- |
-| `npm run gen -- <generator>`   | Scaffold. `feature`, `component`, `hook`, `page`.        |
-| `npm run verify`               | format → lint → types → unit → dead code → locale parity |
-| `npm run e2e` / `npm run a11y` | Playwright flows / axe                                   |
-| `npm run test:mutation`        | Proves the tests actually test                           |
-| `npm run api:generate`         | Regenerate the typed API contract                        |
-| `npm run storybook`            | Review every component state                             |
+| Command                                           | Use                                                                                |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `npm run gen -- <generator>`                      | Scaffold. `feature`, `component`, `hook`, `page`.                                  |
+| `npm run verify`                                  | format → lint → rule tests → types → unit → dead code → duplicates → locale parity |
+| `npm run e2e` / `npm run a11y` / `npm run visual` | Playwright flows / axe / screenshot baselines                                      |
+| `npm run test:mutation`                           | Proves the tests actually test                                                     |
+| `npm run api:generate`                            | Regenerate the typed API contract                                                  |
+| `npm run storybook`                               | Review every component state                                                       |
+
+## Adding a component — use the registry, do not improvise
+
+shadcn is **not** a dependency; it is a CLI that copies source files into this
+repo. Tailwind remains the styling engine, and the `@theme` token names in
+`src/styles/index.css` are shadcn's vocabulary **on purpose** — rename one and
+every future `shadcn add` breaks.
+
+| Need                                            | Command                                                                |
+| ----------------------------------------------- | ---------------------------------------------------------------------- |
+| A primitive (select, dialog, dropdown, tooltip) | `npx shadcn@latest add select` → lands in `atoms` via `aliases.ui`     |
+| A chart, table or theme toggle                  | `npx shadcn@latest add @react-dev/chart` → lands in its declared layer |
+
+Both install their own npm dependency at that moment. That is deliberate: the
+core stays minimal and nothing ships a chart library you never render.
+
+**Which layer does a NEW component belong to?**
+
+| Layer        | Test                                                                 |
+| ------------ | -------------------------------------------------------------------- |
+| **atom**     | Props only. No store, no fetch, no `t()`, no router.                 |
+| **molecule** | Composes atoms. May translate and read a store. No domain knowledge. |
+| **organism** | A distinct section of UI. Owns state, composes molecules.            |
+| **template** | Layout and slots. Never fetches.                                     |
+| **page**     | A feature's `pages/`. Real data meets a template.                    |
+
+Charts specifically: `--chart-1..5` is a **validated** colourblind-safe palette
+in fixed order. Never add, reorder or hand-pick a hue — re-run the validator.
+Five series is the cap; past that fold into "Other" or use small multiples.
 
 ## Hard rules
 
+- **NEVER hand-write a component the registry already has.** Check
+  `npx shadcn@latest add` first; the shadcn MCP lets you search it directly.
 - **NEVER hand-create a feature, page, component or hook.** Run `npm run gen`.
   Generated code has a known shape, which is what makes it migratable later.
 - **NEVER hand-write an API response type.** Import from `src/lib/api/generated`.
@@ -67,7 +98,8 @@ two or more → promote it to the right atomic layer.
 `npm run verify` green · E2E spec for the happy path · zero critical/serious axe
 violations · a `.stories.tsx` per component (import CSF types from `@storybook/react-vite`,
 add `tags: ['autodocs']`) and a test per hook and api module ·
-screenshots at 375 / 768 / 1440 · `specs/<feature>/tasks.md` fully ticked ·
+`npm run visual` clean (or baselines intentionally updated) ·
+`specs/<feature>/tasks.md` fully ticked ·
 `specs/<feature>/review.md` has real `## Automated verification` results
 
 ## Workflow

@@ -36,6 +36,11 @@ jobs:
       - run: npm install
       - run: npm run verify
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - run: npm run a11y
+      - run: npm run visual
+      - run: npm run build-storybook
 
   # The generator must produce code that passes the same gate.
   generated:
@@ -57,3 +62,37 @@ jobs:
       - run: npm run gen -- hook orders useOrderFilters
       - run: npm run verify
       - run: npm run build
+
+  # The registry must build, and its items must pass the template's own gate
+  # once installed -- including landing in the right atomic layer.
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: templates/react/package-lock.json
+      - name: build the registry
+        working-directory: registry
+        run: npx shadcn@latest build --output public/r
+      - name: install template deps
+        working-directory: templates/react
+        run: npm install
+      - name: install every registry item
+        working-directory: templates/react
+        run: |
+          for item in chart data-table theme-toggle; do
+            npx shadcn@latest add "$GITHUB_WORKSPACE/registry/public/r/$item.json" --yes
+          done
+      - name: items landed in the declared atomic layer
+        working-directory: templates/react
+        run: |
+          test -f src/components/molecules/chart.tsx
+          test -f src/components/molecules/theme-toggle.tsx
+          test -f src/components/organisms/data-table.tsx
+          ! test -f src/components/atoms/data-table.tsx
+      - name: the gate still passes with them installed
+        working-directory: templates/react
+        run: npm run verify

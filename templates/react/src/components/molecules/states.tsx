@@ -33,7 +33,7 @@ export function EmptyState({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col items-center gap-3 rounded-card border border-border bg-surface p-10 text-center">
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card p-10 text-center">
       <h2 className="text-lg font-semibold">{title ?? t('states.emptyTitle')}</h2>
       <p className="max-w-sm text-sm text-muted-foreground">{body ?? t('states.emptyBody')}</p>
       {action}
@@ -47,7 +47,7 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   return (
     <div
       role="alert"
-      className="flex flex-col items-center gap-3 rounded-card border border-status-danger/30 bg-surface p-10 text-center"
+      className="flex flex-col items-center gap-3 rounded-lg border border-destructive/30 bg-card p-10 text-center"
     >
       <h2 className="text-lg font-semibold">{t('states.errorTitle')}</h2>
       <p className="max-w-sm text-sm text-muted-foreground">{t('states.errorBody')}</p>

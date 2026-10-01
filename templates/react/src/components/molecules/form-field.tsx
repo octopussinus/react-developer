@@ -39,7 +39,7 @@ export function FormField({ label, error, hint, ...inputProps }: FormFieldProps)
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} role="alert" className="text-xs text-status-danger">
+        <p id={errorId} role="alert" className="text-xs text-destructive">
           {error}
         </p>
       ) : null}

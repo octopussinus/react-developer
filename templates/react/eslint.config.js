@@ -7,6 +7,8 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 import sonarjs from 'eslint-plugin-sonarjs';
 import boundaries from 'eslint-plugin-boundaries';
 import vitest from '@vitest/eslint-plugin';
+// Local plugin: where react-feedback puts a promoted rule. See eslint-rules/README.md.
+import local from './eslint-rules/index.js';
 
 export default tseslint.config(
   {
@@ -33,6 +35,9 @@ export default tseslint.config(
       'jsx-a11y': jsxA11y,
       sonarjs,
       boundaries,
+      // Registered with NO rules enabled: a promoted rule fails CI for everyone,
+      // so turning one on is a deliberate decision, not a default.
+      local,
     },
     settings: {
       // boundaries resolves import specifiers to real files, so it needs the @/
@@ -210,7 +215,13 @@ export default tseslint.config(
 
   // Config files run in Node and are not part of the app graph.
   {
-    files: ['*.config.{js,ts,mjs}', '.storybook/**/*.ts', 'tools/**/*.mjs', 'scripts/**/*.mjs'],
+    files: [
+      '*.config.{js,ts,mjs}',
+      '.storybook/**/*.ts',
+      'tools/**/*.mjs',
+      'scripts/**/*.mjs',
+      'eslint-rules/**/*.js',
+    ],
     languageOptions: { globals: globals.node },
     extends: [tseslint.configs.disableTypeChecked],
     rules: { 'no-console': 'off' },

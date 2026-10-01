@@ -140,3 +140,30 @@ Two things that bite:
 A story per *state*, not per component: the populated case plus empty, loading,
 error and long-content. Those are what reviewers actually need to see, and
 `npm run build-storybook` makes them a reviewable artifact.
+
+## Getting a component: registry first
+
+Do not write a select, dialog, table or chart from scratch. shadcn is a CLI that
+copies source into the repo — no runtime dependency, and the file becomes yours.
+
+```bash
+npx shadcn@latest add select                 # primitive -> src/components/atoms/
+npx shadcn@latest add @react-dev/chart       # -> src/components/molecules/
+npx shadcn@latest add @react-dev/data-table  # -> src/components/organisms/
+```
+
+The destination is decided by the **item**, not by you: public primitives follow
+`aliases.ui` (atoms), and `@react-dev` items declare their own `files[].target`.
+Items also ship their own `.stories.tsx` and `.test.tsx`, so an installed
+component already meets the definition of done.
+
+The shadcn MCP server is configured, so you can search the registry directly
+rather than guessing component names.
+
+**After installing:** read the file. It is yours now — adapt it to the spec
+rather than wrapping it. Keep role tokens (`bg-card`, `text-muted-foreground`)
+so it stays theme-correct in both schemes.
+
+**Writing a new one instead?** Pick its layer by the table in `AGENTS.md`, and
+if it is reusable beyond this feature, consider adding it to the registry so the
+next project gets it too.
