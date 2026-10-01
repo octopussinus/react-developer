@@ -1,6 +1,6 @@
 ---
 name: react-prototype
-description: Build a static HTML prototype of a screen using the project's real Tailwind build and design tokens. Use when there is a mockup, screenshot, or visual description to match before implementing.
+description: Get the screen's design into the feature's spec folder - pulled from Stitch if it was designed there, otherwise built as static HTML against the project's own Tailwind build. Use before implementing any screen that has a design.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 
@@ -40,10 +40,39 @@ View it at `http://localhost:5173/specs/NNN-<slug>/prototype.html` while
 `npm run dev` runs. Confirm it actually renders before reporting done — a
 prototype you never loaded is a guess.
 
-## Procedure
+## Designed in Stitch already? Fetch it, do not redraw it
+
+If the screen exists in Stitch, the MCP has it:
+
+```
+list_screens  →  get_screen (name: projects/{p}/screens/{s})
+              →  save what it returns into specs/NNN-<slug>/
+```
+
+Nothing is called `get_screen_code` or `get_screen_image`, whatever older guides
+say — `get_screen` is the one tool, and generation calls must be **polled, never
+retried** (see the `react-roadmap` skill's `references/stitch.md`).
+
+Then **translate it rather than keeping it**, because Stitch output is a
+reference, not an implementation:
+
+| Stitch gives you | What you must do |
+|---|---|
+| Raw hex colours, px radii | Replace with role tokens: `bg-card`, `text-muted-foreground`, `rounded-lg` |
+| One flat document | Map repeated blocks onto `src/components/*` — check the registry first |
+| The populated state only | Add empty, loading and error sections; they are what reviews catch |
+| A fixed width | Make it work at 375 / 768 / 1440 |
+
+If its colours disagree with `@theme`, that is a **token** problem — say so and
+let `react-theme` fix it once. Never hardcode the design's hex per component.
+
+Keep any screenshot it returns in the spec folder: `react-verify` compares its
+own screenshots against it.
+
+## Procedure (no Stitch screen — build it by hand)
 
 1. **Read the token vocabulary first.** `cat src/styles/index.css` and list the
-   `@theme` tokens. Use `bg-surface`, `text-muted-foreground`, `rounded-card`
+   `@theme` tokens. Use `bg-card`, `text-muted-foreground`, `rounded-lg`
    and friends.
 2. **Read the existing primitives.** `ls src/components/ui/` — match their
    markup and class patterns so translation to components is mechanical later.

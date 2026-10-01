@@ -41,3 +41,41 @@ deterministic. The registry item decides the layer; the agent does not guess.
 
 Verify it is connected by asking the agent to list available components. If it
 cannot, check that `components.json` has the `registries` entry.
+
+## Stitch (optional — add it yourself)
+
+[Stitch](https://stitch.withgoogle.com) generates UI designs from prompts, and its
+MCP lets the agent read them and push your design system into them. It is **not**
+in `.mcp.json` because the credential must not be committed.
+
+With a Stitch **API key** (simplest):
+
+```bash
+# Claude Code -- user scope, so every project sees it and the key stays out of git
+claude mcp add stitch --transport http https://stitch.googleapis.com/mcp \
+  --header "X-Goog-Api-Key: YOUR_KEY" -s user
+```
+
+```bash
+# Gemini CLI
+gemini mcp add --transport http stitch https://stitch.googleapis.com/mcp \
+  --header "X-Goog-Api-Key: YOUR_KEY"
+```
+
+```toml
+# Codex -- ~/.codex/config.toml
+[mcp_servers.stitch]
+url = "https://stitch.googleapis.com/mcp"
+http_headers = { "X-Goog-Api-Key" = "YOUR_KEY" }
+```
+
+Verify with `claude mcp get stitch` → `✔ Connected`.
+
+With a **Google Cloud project** instead of a key, use the proxy:
+`npx -y @_davideast/stitch-mcp proxy` with `GOOGLE_CLOUD_PROJECT` set, or
+`STITCH_USE_SYSTEM_GCLOUD=1` to reuse a gcloud login.
+
+Once connected, `/react-roadmap` inventories your screens and maps them to
+features, and `/react-prototype` pulls a screen into the spec folder. The real
+tool list — several popular guides have it wrong — is in that skill's
+`references/stitch.md`.

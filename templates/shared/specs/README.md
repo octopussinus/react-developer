@@ -1,5 +1,9 @@
 # `specs/` — one feature, one folder, one branch
 
+`ROADMAP.md` lives here too, when there is one: `react-roadmap` turns a long
+brief into an ordered list of features, and `react-feature <n>` picks them off
+one at a time.
+
 Each feature gets `specs/NNN-<slug>/` on branch `NNN-<slug>`. Everything about
 the feature lives there, so the spec and the code arrive in the same diff and
 "what was this built from, and who agreed to it?" has an answer.

@@ -20,6 +20,24 @@ react-dev = "react_dev:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+# shared-data force-includes directories, which bypasses VCS ignore rules --
+# without these, templates/react/node_modules (468 MB) lands in the wheel.
+# Visual baselines under e2e/*-snapshots ARE wanted and must not be excluded.
+exclude = [
+  "**/node_modules",
+  "**/dist",
+  "**/coverage",
+  "**/playwright-report",
+  "**/test-results",
+  "**/storybook-static",
+  "**/.expo",
+  "**/__pycache__",
+  "**/.pytest_cache",
+  "**/.venv",
+  "registry/public",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/react_dev"]
 

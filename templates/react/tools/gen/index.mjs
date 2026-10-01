@@ -19,7 +19,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { argv, cwd, exit } from 'node:process';
 
@@ -217,8 +217,12 @@ export function use${Pascal}List() {
   apiTest: (slug) => {
     const Pascal = toPascal(slug);
     const camel = toCamel(slug);
-    return `import { describe, expect, it } from 'vitest';
-import { ${camel}Keys } from './use-${toKebab(slug)}-list';
+    return `import { http, HttpResponse } from 'msw';
+import { describe, expect, it } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { server } from '@/testing/mocks/server';
+import { QueryWrapper } from '@/testing/render';
+import { ${camel}Keys, use${Pascal}List } from './use-${toKebab(slug)}-list';
 
 describe('${camel}Keys', () => {
   it('nests list and detail keys under the feature root', () => {
@@ -231,8 +235,42 @@ describe('${camel}Keys', () => {
   });
 });
 
-// TODO: add request tests with MSW -- mock at the network boundary,
-// never mock your own modules.
+describe('use${Pascal}List', () => {
+  // Mocked at the NETWORK boundary by the default handler in
+  // src/testing/mocks/handlers/${slug}.ts -- never by stubbing our own modules,
+  // which would stop testing the fetch path at all.
+  it('returns the list from the API', async () => {
+    const { result } = renderHook(() => use${Pascal}List(), { wrapper: QueryWrapper });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    expect(result.current.data).toHaveLength(5);
+  });
+
+  // Unhappy paths are per-test overrides, so the default handler stays the happy
+  // path for everyone else. setup.ts resets handlers after each test.
+  it('surfaces a server error', async () => {
+    server.use(http.get('*/${slug}', () => HttpResponse.json(null, { status: 500 })));
+
+    const { result } = renderHook(() => use${Pascal}List(), { wrapper: QueryWrapper });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+  });
+
+  it('handles an empty list', async () => {
+    server.use(http.get('*/${slug}', () => HttpResponse.json([])));
+
+    const { result } = renderHook(() => use${Pascal}List(), { wrapper: QueryWrapper });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    expect(result.current.data).toEqual([]);
+  });
+});
 `;
   },
 
@@ -325,6 +363,171 @@ export const Default: Story = {};
 // TODO: add a story per state -- loading, empty, error, long content.
 `,
 
+  mockFactory: (slug, entity) => {
+    const camel = toCamel(entity);
+    return `import { faker } from '../factories';
+import type { ${entity} } from '@/features/${slug}';
+
+/**
+ * Factory for ${entity}. Always accept overrides so a test can pin the one field
+ * it cares about:
+ *
+ *   build${entity}({ id: 'known-id' })
+ *
+ * Shape this from the GENERATED API type once you have one -- a factory that
+ * invents a field hides exactly the bug generated types exist to prevent.
+ */
+export function build${entity}(overrides: Partial<${entity}> = {}): ${entity} {
+  return {
+    id: faker.string.uuid(),
+    ...overrides,
+  };
+}
+
+/** A list, deterministic for a given count. */
+export function build${entity}List(count = 5, overrides: Partial<${entity}> = {}): ${entity}[] {
+  return Array.from({ length: count }, () => build${entity}(overrides));
+}
+
+// TODO: add the realistic extremes. A factory that only makes tidy data hides
+// every layout bug the UI has:
+//   export const ${camel}WithLongText = () => build${entity}({ name: 'x'.repeat(80) });
+//   export const ${camel}AtZero = () => build${entity}({ total: 0 });
+//   export const ${camel}Minimal = () => build${entity}({ description: null });
+`;
+  },
+
+  mockHandler: (slug, entity) => {
+    const camel = toCamel(entity);
+    return `import { http, HttpResponse } from 'msw';
+import { build${entity}List } from '../factories/${toKebab(entity)}';
+
+/**
+ * HAPPY PATH ONLY for ${slug}.
+ *
+ * Unhappy paths belong in the test that needs them, via \`server.use(...)\`:
+ * a 500 baked in here would break every other test. Empty, error and loading
+ * states are per-test overrides.
+ */
+export const ${camel}Handlers = [
+  http.get('*/${slug}', () => HttpResponse.json(build${entity}List(5))),
+
+  http.get('*/${slug}/:id', ({ params }) =>
+    HttpResponse.json(build${entity}List(1, { id: String(params['id']) })[0]),
+  ),
+];
+`;
+  },
+
+  sharedComponent: (layer, name) => {
+    // Only what the stub actually uses -- an unused import fails the gate.
+    // The comment in the body says where to import the next layer down from.
+    const imports =
+      layer === 'template'
+        ? "import type { ReactNode } from 'react';\nimport { cn } from '@/lib/cn';"
+        : "import { cn } from '@/lib/cn';";
+
+    const rules = {
+      atom: 'Atom. Presentational only: no store, no fetch, no t(), no router.\n * Everything it renders comes from props. May import only lib and types.',
+      molecule:
+        'Molecule. Composes atoms. May translate and read a store.\n * No domain knowledge -- it must be reusable by any feature.',
+      organism: 'Organism. A distinct section of UI: owns state, composes molecules.',
+      template:
+        'Template. Arranges organisms into a layout and takes content\n * through slots. NEVER fetches -- a feature page supplies the real content.',
+    }[layer];
+
+    const composeFrom = {
+      atom: 'nothing -- an atom composes no other component',
+      molecule: "atoms: import { Button, Input } from '@/components/atoms'",
+      organism: "molecules: import { EmptyState } from '@/components/molecules'",
+      template: "organisms: import { SidebarNav } from '@/components/organisms'",
+    }[layer];
+
+    const body =
+      layer === 'template'
+        ? `    <div className={cn('min-h-dvh bg-background', className)}>{children}</div>`
+        : `    <div className={cn('rounded-lg border border-border bg-card p-4', className)}>
+      {/* TODO: implement.
+          Compose from ${composeFrom}.
+          Role tokens only -- no raw colours, no literal strings. */}
+    </div>`;
+
+    const props =
+      layer === 'template'
+        ? `export interface ${name}Props {
+  children: ReactNode;
+  className?: string;
+}`
+        : `export interface ${name}Props {
+  className?: string;
+}`;
+
+    const args = layer === 'template' ? '{ children, className }' : '{ className }';
+
+    return `${imports}
+
+${props}
+
+/**
+ * ${rules}
+ *
+ * The import direction is enforced by eslint-plugin-boundaries, so a wrong
+ * layer is a failing lint rule rather than a review comment.
+ */
+export function ${name}(${args}: ${name}Props) {
+  ${layer === 'template' ? `return ${body.trim()};` : `return (\n${body}\n  );`}
+}
+`;
+  },
+
+  sharedTest: (layer, name) => `import { describe, expect, it } from 'vitest';
+import { render${layer === 'template' ? ', screen' : ''} } from '@/testing/render';
+import { ${name} } from './${toKebab(name)}';
+
+describe('${name}', () => {
+  it('renders', () => {
+    ${
+      layer === 'template'
+        ? `render(<${name}>content</${name}>);
+    expect(screen.getByText('content')).toBeInTheDocument();`
+        : `const { container } = render(<${name} />);
+    expect(container.firstChild).toBeInTheDocument();`
+    }
+  });
+
+  // TODO: replace the smoke test above with assertions about behaviour.
+  // \`npm run test:mutation\` flags a weak assertion like this one.
+});
+`,
+
+  sharedStory: (layer, name) => {
+    const title = {
+      atom: 'Atoms',
+      molecule: 'Molecules',
+      organism: 'Organisms',
+      template: 'Templates',
+    }[layer];
+    // A layer with a REQUIRED prop needs default args here; without them
+    // Storybook's types reject `Default: Story = {}`.
+    const defaultArgs = layer === 'template' ? "\n  args: { children: 'Page content' }," : '';
+
+    return `import type { Meta, StoryObj } from '@storybook/react-vite';
+import { ${name} } from './${toKebab(name)}';
+
+const meta = {
+  title: '${title}/${name}',
+  component: ${name},
+  tags: ['autodocs'],${defaultArgs}
+} satisfies Meta<typeof ${name}>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {};
+// TODO: one story per STATE -- loading, empty, error, long content, disabled.
+`;
+  },
+
   hook: (name) => `import { useCallback, useState } from 'react';
 
 export function ${name}() {
@@ -394,6 +597,13 @@ async function genFeature(positional, flags) {
   await addLocaleNamespace(slug, Pascal);
   await registerRoute({ slug, pageName, routePath, sidebar: flags['no-sidebar'] !== true });
 
+  // Mocks come with the feature, not later. Without them the first `npm run dev`
+  // shows an error state and the agent has nothing to build the UI against.
+  const entity = `${Pascal}Item`;
+  await write(`src/testing/mocks/factories/${toKebab(entity)}.ts`, body.mockFactory(slug, entity));
+  await write(`src/testing/mocks/handlers/${slug}.ts`, body.mockHandler(slug, entity));
+  await registerMockHandlers(slug, entity);
+
   return { slug, routePath };
 }
 
@@ -444,6 +654,196 @@ async function genPage(positional, flags) {
   return { slug, pageName, routePath };
 }
 
+/**
+ * Register a domain handler in the single composed list.
+ *
+ * One list is what keeps dev, Storybook and tests describing the same API --
+ * separate lists drift, and then you test something you never run.
+ */
+async function registerMockHandlers(slug, entity) {
+  const camel = toCamel(entity);
+  const importLine = `import { ${camel}Handlers } from './${toKebab(slug)}';`;
+  const spreadLine = `  ...${camel}Handlers,`;
+
+  await edit('src/testing/mocks/handlers/index.ts', (source) => {
+    if (source.includes(importLine)) return source;
+    return source
+      .replace(
+        '// react-dev:mock-handlers -- the generator inserts imports above this line',
+        `${importLine}\n// react-dev:mock-handlers -- the generator inserts imports above this line`,
+      )
+      .replace(
+        '  // react-dev:mock-list -- the generator inserts spreads above this line',
+        `${spreadLine}\n  // react-dev:mock-list -- the generator inserts spreads above this line`,
+      );
+  });
+}
+
+async function genMock(positional) {
+  const [rawSlug, rawEntity] = positional;
+  if (!rawSlug || !rawEntity) fail('usage: npm run gen -- mock <feature> <Entity>');
+
+  const slug = toKebab(rawSlug);
+  await assertFeatureExists(slug);
+  const entity = toPascal(rawEntity);
+
+  await write(`src/testing/mocks/factories/${toKebab(entity)}.ts`, body.mockFactory(slug, entity));
+  await write(`src/testing/mocks/handlers/${slug}.ts`, body.mockHandler(slug, entity));
+  await registerMockHandlers(slug, entity);
+
+  return { slug, entity };
+}
+
+const LAYER_DIRS = {
+  atom: 'atoms',
+  molecule: 'molecules',
+  organism: 'organisms',
+  template: 'templates',
+};
+
+/** Append an export to a layer barrel, keeping it sorted and idempotent. */
+async function addBarrelExport(layer, name) {
+  const dir = LAYER_DIRS[layer];
+  const relative = `src/components/${dir}/index.ts`;
+  const line = `export { ${name}, type ${name}Props } from './${toKebab(name)}';`;
+
+  await edit(relative, (source) => {
+    if (source.includes(`from './${toKebab(name)}'`)) return source;
+    const lines = [...source.split('\n').filter(Boolean), line].sort();
+    return lines.join('\n') + '\n';
+  });
+}
+
+async function genShared(layer, positional) {
+  const [raw] = positional;
+  if (!raw) fail(`usage: npm run gen -- ${layer} <ComponentName>`);
+
+  const name = toPascal(raw);
+  const dir = LAYER_DIRS[layer];
+  const base = `src/components/${dir}`;
+
+  if (existsSync(join(ROOT, base, `${toKebab(name)}.tsx`))) {
+    fail(`${base}/${toKebab(name)}.tsx already exists`);
+  }
+
+  await write(`${base}/${toKebab(name)}.tsx`, body.sharedComponent(layer, name));
+  await write(`${base}/${toKebab(name)}.test.tsx`, body.sharedTest(layer, name));
+  await write(`${base}/${toKebab(name)}.stories.tsx`, body.sharedStory(layer, name));
+  await addBarrelExport(layer, name);
+
+  return { layer, name };
+}
+
+/**
+ * Move a component out of a feature into a shared layer, rewriting every
+ * import.
+ *
+ * This exists as a generator because doing it by hand is where mistakes
+ * happen: the file moves, but one importer keeps the old path, the barrel never
+ * gets the export, and the story title still says the feature's name. Here it
+ * either completes or fails loudly.
+ */
+async function genPromote(positional, flags) {
+  const [rawSlug, rawName] = positional;
+  const layer = typeof flags.to === 'string' ? flags.to : '';
+
+  if (!rawSlug || !rawName || !(layer in LAYER_DIRS)) {
+    fail(
+      'usage: npm run gen -- promote <feature> <ComponentName> --to=atom|molecule|organism|template',
+    );
+  }
+
+  const slug = toKebab(rawSlug);
+  await assertFeatureExists(slug);
+
+  const name = toPascal(rawName);
+  const file = toKebab(name);
+  const from = `src/features/${slug}/components`;
+  const to = `src/components/${LAYER_DIRS[layer]}`;
+
+  if (!existsSync(join(ROOT, from, `${file}.tsx`))) {
+    fail(`${from}/${file}.tsx not found`);
+  }
+  if (existsSync(join(ROOT, to, `${file}.tsx`))) {
+    fail(`${to}/${file}.tsx already exists -- resolve the name clash first`);
+  }
+
+  // 1. move the component and whatever travels with it
+  for (const suffix of ['.tsx', '.test.tsx', '.stories.tsx']) {
+    const source = join(ROOT, from, `${file}${suffix}`);
+    if (!existsSync(source)) continue;
+    const contents = await readFile(source, 'utf8');
+    await write(`${to}/${file}${suffix}`, contents);
+    await rm(source);
+    console.log(`  move     ${from}/${file}${suffix} -> ${to}/${file}${suffix}`);
+  }
+
+  // 2. retitle the story for its new layer
+  const storyPath = `${to}/${file}.stories.tsx`;
+  if (existsSync(join(ROOT, storyPath))) {
+    const title = {
+      atom: 'Atoms',
+      molecule: 'Molecules',
+      organism: 'Organisms',
+      template: 'Templates',
+    }[layer];
+    await edit(storyPath, (source) => source.replace(/title: '[^/]+\//, `title: '${title}/`));
+  }
+
+  // 3. rewrite every importer. Relative paths inside the old feature and
+  //    absolute @/features paths elsewhere both have to land on the barrel.
+  const barrel = `@/components/${LAYER_DIRS[layer]}`;
+  const patterns = [
+    new RegExp(`'[./]*(?:\\.\\./)*components/${file}'`, 'g'),
+    new RegExp(`'@/features/${slug}/components/${file}'`, 'g'),
+    new RegExp(`'\\./${file}'`, 'g'),
+  ];
+
+  let rewritten = 0;
+  for (const candidate of await collectSourceFiles()) {
+    const relative = candidate.replace(`${ROOT}/`, '');
+    if (relative.startsWith(to)) continue; // the moved files themselves
+    const before = await readFile(candidate, 'utf8');
+    if (!before.includes(file) && !before.includes(name)) continue;
+
+    let after = before;
+    for (const pattern of patterns) after = after.replace(pattern, `'${barrel}'`);
+    if (after === before) continue;
+
+    await writeFile(candidate, after, 'utf8');
+    modified.push(relative);
+    rewritten += 1;
+    console.log(`  rewrite  ${relative}`);
+  }
+
+  // 4. publish it from the new layer
+  await addBarrelExport(layer, name);
+
+  console.log(
+    `\n  promoted ${name}: feature "${slug}" -> ${layer} (${rewritten} importer(s) rewritten)`,
+  );
+  console.log('  check the component no longer reads domain state -- a shared layer must not.');
+  return { name, layer };
+}
+
+/** Every .ts/.tsx under src, for import rewriting. */
+async function collectSourceFiles() {
+  const out = [];
+  async function walk(dir) {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'generated' || entry.name === 'node_modules') continue;
+        await walk(full);
+      } else if (/\.tsx?$/.test(entry.name)) {
+        out.push(full);
+      }
+    }
+  }
+  await walk(join(ROOT, 'src'));
+  return out;
+}
+
 // --------------------------------------------------------------------------- //
 // entry
 // --------------------------------------------------------------------------- //
@@ -453,6 +853,12 @@ const GENERATORS = {
   component: genComponent,
   hook: genHook,
   page: genPage,
+  mock: genMock,
+  atom: (p) => genShared('atom', p),
+  molecule: (p) => genShared('molecule', p),
+  organism: (p) => genShared('organism', p),
+  template: (p) => genShared('template', p),
+  promote: genPromote,
 };
 
 async function main() {
@@ -462,10 +868,21 @@ async function main() {
     console.log(`
   npm run gen -- <generator> [args]
 
+  feature-local:
     feature   <slug> [--route=/path] [--no-sidebar]
     component <feature> <ComponentName>
     hook      <feature> use<Name>
     page      <feature> <PageName> [--route=/path]
+    mock      <feature> <Entity>     MSW handler + factory, wired into the list
+
+  shared (atomic layers) -- check the registry first:
+    atom      <ComponentName>        props only, no logic
+    molecule  <ComponentName>        composes atoms
+    organism  <ComponentName>        a section of UI, owns state
+    template  <ComponentName>        layout and slots, never fetches
+
+  moving one up a layer:
+    promote   <feature> <ComponentName> --to=atom|molecule|organism|template
 
   Structure is generated so it is identical every time and migratable later.
   Never hand-create what a generator owns.

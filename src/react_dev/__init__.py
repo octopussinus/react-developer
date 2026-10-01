@@ -36,11 +36,13 @@ PROJECT_TYPES = {
 #: Order the workflow is meant to be used in. Drives the Next Steps panel.
 WORKFLOW_ORDER = [
     "react-constitution",
+    "react-roadmap",
     "react-feature",
     "react-prototype",
     "react-spec",
     "react-clarify",
     "react-implement",
+    "react-component",
     "react-verify",
     "react-analyze",
     "react-feedback",

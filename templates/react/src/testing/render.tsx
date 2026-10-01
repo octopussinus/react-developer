@@ -49,5 +49,11 @@ export function render(ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'
   return rtlRender(ui, { wrapper: createWrapper(), ...options });
 }
 
+/**
+ * Wrapper for `renderHook`, which takes a component rather than calling render.
+ * Same providers, so a hook test and a component test see the same world.
+ */
+export const QueryWrapper = createWrapper();
+
 export { screen, waitFor, within } from '@testing-library/react';
 export { default as userEvent } from '@testing-library/user-event';

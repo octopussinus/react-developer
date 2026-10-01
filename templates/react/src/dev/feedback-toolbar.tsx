@@ -173,7 +173,9 @@ export function mountFeedbackToolbar(): void {
       line: source?.line ?? null,
       component: source?.component ?? null,
       selector: cssPath(target),
-      text: target.textContent?.trim().slice(0, 140) ?? null,
+      // `||` not `??`: an empty string should become null, and TS 5.9's DOM lib
+      // types textContent as non-nullable so `?.` would be dead code.
+      text: target.textContent.trim().slice(0, 140) || null,
       computedStyles: relevantStyles(target),
       route: window.location.pathname,
       viewport: { width: window.innerWidth, height: window.innerHeight },

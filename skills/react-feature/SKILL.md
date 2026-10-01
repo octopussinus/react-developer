@@ -19,6 +19,14 @@ generator already produces.
 
 ## Procedure
 
+0. **Check for a roadmap.** If `specs/ROADMAP.md` exists and the user named a
+   number or slug (`react-feature 3`, `react-feature order-tracking`), read that
+   entry and take its slug, description and dependencies from there — do not
+   re-derive them.
+   - If its dependencies are not built yet, say so and ask before continuing.
+   - If it is sized **L**, stop: it needs splitting in the roadmap first.
+   - Mark the entry in-progress in `ROADMAP.md`.
+   With no roadmap, carry on from step 1 using what the user described.
 1. **Derive the slug.** Kebab-case, domain language, no ticket numbers:
    `order-tracking`, not `feat-1234` or `OrderTrackingFeature`.
 2. **Find the next number.** `ls specs/` and take the highest `NNN` + 1,
@@ -40,7 +48,7 @@ generator already produces.
 
 ## Report
 
-State: the branch, the spec folder, every path the generator created, and the
-`npm run verify` result. Then hand off:
+State: the branch, the spec folder, every path the generator created, the
+roadmap entry used (if any), and the `npm run verify` result. Then hand off:
 
 > Next: `react-prototype` if there is a design to match, otherwise `react-spec`.

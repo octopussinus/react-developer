@@ -10,6 +10,9 @@ react-dev init my-app
 cd my-app && npm install && npm run verify
 ```
 
+**New here? [GUIDE.md](GUIDE.md) walks you from an empty directory to a shipped
+feature.** The rest of this file is what the project is and why.
+
 `npm run verify` is green on the first commit. That is the point: an agent with
 a gate it must pass behaves differently from one producing plausible text.
 
@@ -36,6 +39,8 @@ puts those first.
 ```
 react-constitution   once per project — writes AGENTS.md
       ↓
+react-roadmap        a long brief → specs/ROADMAP.md, features ordered and sized
+      ↓
 react-feature        branch + specs/NNN-slug/ + npm run gen
       ↓
 react-prototype      static HTML using the project's OWN Tailwind build
@@ -53,7 +58,9 @@ react-analyze        read-only drift check: spec ↔ code ↔ AGENTS.md
 react-feedback       capture corrections; promote recurring ones to rules
 ```
 
-Side skills: `react-update`, `react-i18n`, `react-theme`.
+Side skills: `react-component`, `react-update`, `react-i18n`, `react-theme`.
+
+`react-roadmap` is optional — skip it if you already know the next feature.
 
 ### How you invoke them
 
@@ -107,7 +114,7 @@ Inside a generated project:
 
 | Command | What it does |
 |---|---|
-| `npm run gen -- feature\|component\|hook\|page` | Deterministic scaffolding |
+| `npm run gen -- …` | Deterministic scaffolding: `feature`, `component`, `hook`, `page`, `atom`, `molecule`, `organism`, `template`, `promote` |
 | `npm run verify` | The gate |
 | `npm run e2e` / `npm run a11y` | Playwright flows / axe |
 | `npm run test:mutation` | Stryker — proves the tests actually test |
@@ -139,9 +146,12 @@ cd templates/react && npm install && npm run verify
 `skills/*/SKILL.md` is the canonical source for all three agents — edit there,
 never in a generated project's `.claude/` or `.gemini/`.
 
-See [ENTERPRISE-READINESS-AUDIT.md](ENTERPRISE-READINESS-AUDIT.md) for the
-analysis this rebuild came from, and [MIGRATION.md](MIGRATION.md) for what
-changed.
+| Doc | For |
+|---|---|
+| [GUIDE.md](GUIDE.md) | **how to build an app with this** — start here |
+| [ENTERPRISE-READINESS-AUDIT.md](ENTERPRISE-READINESS-AUDIT.md) | the analysis this rebuild came from |
+| [MIGRATION.md](MIGRATION.md) | what changed from v0.0.1 |
+| [registry/README.md](registry/README.md) | adding a component to the registry |
 
 ## License
 

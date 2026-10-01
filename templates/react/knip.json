@@ -4,13 +4,16 @@
     "e2e/**/*.spec.ts",
     "scripts/*.mjs",
     "src/lib/use-zod-form.ts",
-    "src/lib/api-client.ts"
+    "src/lib/api-client.ts",
+    "src/features/*/index.ts",
+    "src/testing/mocks/factories/index.ts",
+    "src/testing/render.tsx"
   ],
   "project": ["src/**/*.{ts,tsx}", "tools/**/*.mjs", "scripts/**/*.mjs", "eslint-rules/**/*.js"],
   "paths": {
     "@/*": ["./src/*"]
   },
   "ignore": ["src/types/**"],
-  "ignoreDependencies": ["tailwindcss", "msw", "@tanstack/react-query-devtools", "tw-animate-css"],
+  "ignoreDependencies": ["tailwindcss", "@tanstack/react-query-devtools", "tw-animate-css"],
   "ignoreExportsUsedInFile": true
 }
