@@ -1,29 +1,32 @@
 [project]
 name = "react-developer"
-version = "0.0.1"
-description = "React Developer CLI - A specialized toolkit for AI-assisted React development with TypeScript and Tailwind CSS."
+version = "1.0.0"
+description = "Opinionated, agent-agnostic React/Expo workflow: feature-sliced architecture, deterministic generators, and a closed verify/feedback loop for Claude Code, Codex and Gemini CLI."
 requires-python = ">=3.11"
 dependencies = [
-    "typer",
-    "rich",
-    "httpx[socks]",
-    "platformdirs",
-    "readchar",
-    "truststore>=0.10.4",
+    "typer>=0.12",
+    "rich>=13.7",
+    "readchar>=4.1",
+    "tomli-w>=1.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
-react-dev = "specify_cli:main"
+react-dev = "react_dev:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/specify_cli"]
+packages = ["src/react_dev"]
 
 [tool.hatch.build.targets.wheel.shared-data]
+"skills" = "share/react-developer/skills"
 "templates" = "share/react-developer/templates"
-"react-template" = "share/react-developer/react-template"
-"expo-template" = "share/react-developer/expo-template"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

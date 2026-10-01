@@ -1,0 +1,15 @@
+dist
+coverage
+playwright-report
+test-results
+storybook-static
+package-lock.json
+
+# Generated from the OpenAPI contract -- never hand-formatted.
+src/lib/api/generated
+
+# Owned by react-dev, not by this project. `react-dev sync` rewrites these, so
+# formatting them here would be undone on the next sync -- and a fresh project
+# must pass `npm run verify` immediately.
+.agents/
+.react-dev.json

@@ -1,0 +1,218 @@
+import js from '@eslint/js';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+import sonarjs from 'eslint-plugin-sonarjs';
+import boundaries from 'eslint-plugin-boundaries';
+import vitest from '@vitest/eslint-plugin';
+
+export default tseslint.config(
+  {
+    ignores: [
+      'dist',
+      'coverage',
+      'playwright-report',
+      'src/lib/api/generated',
+      '.storybook-static',
+    ],
+  },
+
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.browser,
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+      'jsx-a11y': jsxA11y,
+      sonarjs,
+      boundaries,
+    },
+    settings: {
+      // boundaries resolves import specifiers to real files, so it needs the @/
+      // alias resolved for it. Without this the rules silently match nothing --
+      // the architecture would be documented but not enforced.
+      'import/resolver': {
+        typescript: { project: './tsconfig.app.json' },
+      },
+
+      // Layers. Order here is documentation; the rules below are enforcement.
+      // Two axes, deliberately:
+      //   atomic design (atoms -> molecules -> organisms -> templates) governs
+      //     the SHARED presentational layer;
+      //   feature slices govern DOMAIN code.
+      // Atomic design's "pages" layer is a feature's pages/ directory.
+      // Folder mode (the plugin default): the pattern names the element's
+      // FOLDER and every file inside belongs to it. A trailing `/*` would make
+      // the pattern match nothing here, leaving the rules silently inert --
+      // verify with ESLINT_PLUGIN_BOUNDARIES_DEBUG=1.
+      'boundaries/elements': [
+        { type: 'app', pattern: 'src/app' },
+        { type: 'feature', pattern: 'src/features/*', capture: ['name'] },
+        { type: 'template', pattern: 'src/components/templates' },
+        { type: 'organism', pattern: 'src/components/organisms' },
+        { type: 'molecule', pattern: 'src/components/molecules' },
+        { type: 'atom', pattern: 'src/components/atoms' },
+        { type: 'lib', pattern: 'src/lib' },
+        { type: 'config', pattern: 'src/config' },
+        { type: 'styles', pattern: 'src/styles' },
+        { type: 'testing', pattern: 'src/testing' },
+        { type: 'dev', pattern: 'src/dev' },
+        { type: 'types', pattern: 'src/types' },
+      ],
+      'boundaries/ignore': ['src/main.tsx', '**/*.test.{ts,tsx}', '**/*.stories.tsx'],
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      ...jsxA11y.flatConfigs.recommended.rules,
+
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+
+      // --- the architecture, as a failing build rather than a code review ---
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            {
+              from: 'app',
+              allow: [
+                'feature',
+                'template',
+                'organism',
+                'molecule',
+                'atom',
+                'lib',
+                'config',
+                'styles',
+                'types',
+              ],
+            },
+
+            // A feature may import ITSELF and any shared layer. Never a sibling feature.
+            {
+              from: 'feature',
+              allow: [
+                ['feature', { name: '${from.name}' }],
+                'template',
+                'organism',
+                'molecule',
+                'atom',
+                'lib',
+                'config',
+                'types',
+              ],
+            },
+
+            // Atomic hierarchy: strictly downward. An atom that reaches for a
+            // molecule is no longer an atom, and this is where that gets caught.
+            { from: 'template', allow: ['organism', 'molecule', 'atom', 'lib', 'config', 'types'] },
+            { from: 'organism', allow: ['molecule', 'atom', 'lib', 'config', 'types'] },
+            { from: 'molecule', allow: ['atom', 'lib', 'config', 'types'] },
+            { from: 'atom', allow: ['lib', 'types'] },
+
+            { from: 'lib', allow: ['lib', 'config', 'types'] },
+            { from: 'config', allow: ['config', 'lib', 'types'] },
+            { from: 'dev', allow: ['atom', 'molecule', 'lib', 'config', 'types'] },
+            {
+              from: 'testing',
+              allow: ['template', 'organism', 'molecule', 'atom', 'lib', 'config', 'types', 'app'],
+            },
+          ],
+        },
+      ],
+      // A feature's index.ts is its only public surface.
+      'boundaries/entry-point': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            { target: ['feature'], allow: 'index.ts' },
+            // Shared layers are imported through their barrel, so a layer can be
+            // reorganised internally without touching every call site.
+            {
+              target: ['template', 'organism', 'molecule', 'atom'],
+              allow: '{index.ts,*.tsx,*.ts}',
+            },
+            { target: ['lib', 'config', 'types', 'styles', 'testing', 'app', 'dev'], allow: '**' },
+          ],
+        },
+      ],
+
+      // --- the type escapes that make generated code look fine and fail later ---
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-non-null-assertion': 'error',
+      '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
+      '@typescript-eslint/no-unnecessary-condition': 'error',
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+
+      // --- behaviour filters: the mistakes LLMs make most often ---
+      'sonarjs/cognitive-complexity': ['error', 15],
+      'sonarjs/no-identical-functions': 'error',
+      'sonarjs/no-duplicate-string': ['warn', { threshold: 4 }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.name="fetch"]',
+          message: 'Use the api client from @/lib/api-client, not raw fetch.',
+        },
+      ],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              // Relative imports WITHIN a feature are correct and expected.
+              // Reaching three levels up is not; cross-layer and cross-feature
+              // reach is caught by boundaries/* instead.
+              group: ['../../../*'],
+              message:
+                'Too deep. Use the @/ alias, or move the shared code into components/ or lib/.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // Tests: same discipline, plus assertions that actually assert.
+  {
+    files: ['**/*.test.{ts,tsx}', 'src/testing/**'],
+    plugins: { vitest },
+    rules: {
+      ...vitest.configs.recommended.rules,
+      'vitest/expect-expect': 'error',
+      'vitest/no-focused-tests': 'error',
+      'vitest/no-disabled-tests': 'warn',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+    },
+  },
+
+  // The dev feedback toolbar talks to the Vite dev server, not to the product
+  // API, so the api-client rule does not apply. Dev-only: it never ships.
+  {
+    files: ['src/dev/**'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
+
+  // Storybook stories are documentation, not product code: a story may import
+  // from any layer in order to demonstrate it.
+  {
+    files: ['**/*.stories.tsx'],
+    rules: { 'boundaries/element-types': 'off', 'boundaries/entry-point': 'off' },
+  },
+
+  // Config files run in Node and are not part of the app graph.
+  {
+    files: ['*.config.{js,ts,mjs}', '.storybook/**/*.ts', 'tools/**/*.mjs', 'scripts/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+    extends: [tseslint.configs.disableTypeChecked],
+    rules: { 'no-console': 'off' },
+  },
+);

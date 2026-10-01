@@ -1,0 +1,23 @@
+{
+  "actions": {
+    "retry": "Spróbuj ponownie",
+    "cancel": "Anuluj",
+    "save": "Zapisz",
+    "create": "Utwórz"
+  },
+  "states": {
+    "loading": "Ładowanie…",
+    "emptyTitle": "Jeszcze nic tu nie ma",
+    "emptyBody": "Utworzone elementy pojawią się tutaj.",
+    "errorTitle": "Coś poszło nie tak",
+    "errorBody": "Żądanie nie powiodło się. Możesz spróbować ponownie."
+  },
+  "theme": {
+    "toggle": "Przełącz motyw",
+    "light": "Jasny",
+    "dark": "Ciemny"
+  },
+  "language": {
+    "label": "Język"
+  }
+}

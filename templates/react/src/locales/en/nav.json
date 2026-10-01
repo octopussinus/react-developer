@@ -1,0 +1,10 @@
+{
+  "home": "Home",
+  "skipToContent": "Skip to content",
+  "mainNavigation": "Main navigation",
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "notFoundTitle": "Page not found",
+  "notFoundBody": "That route does not exist.",
+  "backToHome": "Back to home"
+}

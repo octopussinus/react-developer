@@ -1,0 +1,88 @@
+@import 'tailwindcss';
+
+/*
+ * Two layers, and the distinction is the point:
+ *   1. palette  -- raw ramps. Never referenced from a component.
+ *   2. roles    -- what components actually use. Swapping a role restyles the
+ *                  whole app; that is why dark mode needs no `dark:` variants.
+ */
+@theme {
+  /* 1. palette (OKLCH: interpolates cleanly, consistent perceived lightness) */
+  --color-brand-50: oklch(97% 0.015 264);
+  --color-brand-100: oklch(93% 0.035 264);
+  --color-brand-300: oklch(80% 0.1 264);
+  --color-brand-500: oklch(62% 0.19 264);
+  --color-brand-600: oklch(55% 0.19 264);
+  --color-brand-900: oklch(32% 0.12 264);
+
+  --color-neutral-0: oklch(100% 0 0);
+  --color-neutral-50: oklch(98% 0.002 264);
+  --color-neutral-100: oklch(96% 0.004 264);
+  --color-neutral-200: oklch(92% 0.006 264);
+  --color-neutral-400: oklch(70% 0.012 264);
+  --color-neutral-600: oklch(52% 0.014 264);
+  --color-neutral-800: oklch(28% 0.014 264);
+  --color-neutral-900: oklch(20% 0.012 264);
+  --color-neutral-950: oklch(14% 0.01 264);
+
+  /* 2. roles -- light scheme */
+  --color-background: var(--color-neutral-50);
+  --color-foreground: var(--color-neutral-900);
+  --color-surface: var(--color-neutral-0);
+  --color-surface-muted: var(--color-neutral-100);
+  --color-border: var(--color-neutral-200);
+  --color-muted-foreground: var(--color-neutral-600);
+  --color-primary: var(--color-brand-500);
+  --color-primary-hover: var(--color-brand-600);
+  --color-primary-foreground: var(--color-neutral-0);
+  --color-status-success: oklch(65% 0.16 150);
+  --color-status-warning: oklch(72% 0.16 70);
+  --color-status-danger: oklch(58% 0.21 25);
+  --color-focus: var(--color-brand-500);
+
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+  --spacing-gutter: 1rem;
+}
+
+/* Role overrides only. Never redefine the palette per scheme. */
+@layer base {
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --color-background: var(--color-neutral-950);
+      --color-foreground: var(--color-neutral-100);
+      --color-surface: var(--color-neutral-900);
+      --color-surface-muted: var(--color-neutral-800);
+      --color-border: var(--color-neutral-800);
+      --color-muted-foreground: var(--color-neutral-400);
+      --color-primary: var(--color-brand-300);
+      --color-primary-hover: var(--color-brand-100);
+      --color-primary-foreground: var(--color-neutral-950);
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --color-background: var(--color-neutral-950);
+    --color-foreground: var(--color-neutral-100);
+    --color-surface: var(--color-neutral-900);
+    --color-surface-muted: var(--color-neutral-800);
+    --color-border: var(--color-neutral-800);
+    --color-muted-foreground: var(--color-neutral-400);
+    --color-primary: var(--color-brand-300);
+    --color-primary-hover: var(--color-brand-100);
+    --color-primary-foreground: var(--color-neutral-950);
+  }
+
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Visible focus is an accessibility requirement, not a preference. */
+  :focus-visible {
+    @apply outline-focus outline-2 outline-offset-2;
+  }
+}

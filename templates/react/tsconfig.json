@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "_comment": "baseUrl/paths are repeated here because tools that are not tsc (knip, editors, some bundlers) read the ROOT tsconfig and do not follow project references.",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
+  }
+}

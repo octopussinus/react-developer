@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "e2e/**/*.spec.ts",
+    "scripts/*.mjs",
+    "src/lib/use-zod-form.ts",
+    "src/lib/api-client.ts",
+    "src/features/*/index.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "tools/**/*.mjs", "scripts/**/*.mjs"],
+  "paths": {
+    "@/*": ["./src/*"]
+  },
+  "ignore": ["src/types/**"],
+  "ignoreDependencies": ["tailwindcss", "zustand", "msw", "@tanstack/react-query-devtools"],
+  "ignoreExportsUsedInFile": true
+}

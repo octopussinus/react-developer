@@ -1,0 +1,23 @@
+{
+  "actions": {
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "create": "Create"
+  },
+  "states": {
+    "loading": "Loading…",
+    "emptyTitle": "Nothing here yet",
+    "emptyBody": "Items you create will appear here.",
+    "errorTitle": "Something went wrong",
+    "errorBody": "The request failed. You can try again."
+  },
+  "theme": {
+    "toggle": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "language": {
+    "label": "Language"
+  }
+}

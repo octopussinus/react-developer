@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-js/master/packages/api/schema/stryker-core.json",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "reporters": ["clear-text", "progress"],
+  "coverageAnalysis": "perTest",
+  "mutate": ["src/features/**/*.ts", "src/lib/**/*.ts", "!src/**/*.test.ts"],
+  "_comment": "No thresholds.break on purpose: surviving mutants are a conversation about weak assertions, not a merge blocker. Read the report.",
+  "thresholds": { "high": 80, "low": 60, "break": null }
+}

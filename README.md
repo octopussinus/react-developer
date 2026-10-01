@@ -1,307 +1,148 @@
 # React Developer CLI
 
-Wyspecjalizowane narzędzie do tworzenia aplikacji React z pomocą AI, TypeScript i Tailwind CSS.
-
-## Czym jest React Developer CLI?
-
-React Developer CLI to narzędzie wiersza poleceń, które pomaga inicjalizować projekty **React (Vite)** oraz **React Native/Expo** z przepływami pracy wspomaganymi przez AI. Generuje niestandardowe pliki komend dla Twojego asystenta AI (GitHub Copilot, Claude Code, Gemini CLI itp.), które prowadzą Cię przez ustrukturyzowany proces tworzenia aplikacji.
-
-Narzędzie zapewnia krok po kroku workflow, który gwarantuje spójny i wysokiej jakości rozwój komponentów React (web) i ekranów React Native dzięki współpracy z AI.
-
-## Instalacja
-
-### Instalacja z Git
+Bootstraps a **feature-sliced React project with atomic design**, wired for
+**Claude Code, Codex and Gemini CLI**, where the agent can prove its own work.
 
 ```bash
 uv tool install react-developer --from https://github.com/Mil000D/react-developer.git
+
+react-dev init my-app
+cd my-app && npm install && npm run verify
 ```
 
-## Szybki Start
+`npm run verify` is green on the first commit. That is the point: an agent with
+a gate it must pass behaves differently from one producing plausible text.
 
-1. **Zainicjalizuj nowy projekt:**
-   ```bash
-   react-dev init moj-projekt-react                        # React web (domyślnie)
-   react-dev init moj-projekt-mobile --type react-native   # React Native / Expo
-   ```
+---
 
-2. **Wybierz asystenta AI** gdy zostaniesz o to poproszony (lub określ flagą `--ai`)
+## What makes this different
 
-3. **Rozpocznij tworzenie** używając wygenerowanych komend AI w swoim preferowanym asystencie
-4. **Dla Expo:** po instalacji zależności uruchom `npx expo start` (lub `npm run android` / `npm run ios`) i zeskanuj kod QR w aplikacji Expo Go
+Most AI scaffolding tools optimise code *generation*. The expensive part of
+enterprise frontend work is *verification* and *correction*, so this project
+puts those first.
 
-## Tworzenie Nowego Projektu
+| | How it works |
+|---|---|
+| **The agent can check itself** | `npm run verify` = format → lint → types → unit → dead code → locale parity. Plus Playwright, axe and Stryker. The `react-verify` skill runs them and may only report what it actually ran. |
+| **Structure is generated, not improvised** | `npm run gen -- feature orders` writes 9 files and updates 3 more — route registry, locale namespaces, type augmentation — identically every time. |
+| **Architecture is a failing build** | Atomic layering and feature isolation are `eslint-plugin-boundaries` rules, and `src/testing/architecture.test.ts` proves the rules still fire. |
+| **Corrections become permanent** | Click an element in the running app → `.ai/inbox/` → `.ai/feedback.md` → at 3 recurrences, an `AGENTS.md` rule or an ESLint rule. |
+| **One source of truth, three agents** | Skills live once in `.agents/skills/`. Claude Code gets symlinks, Codex reads it natively, Gemini gets thin TOML shims that *inject* the skill rather than copy it. |
 
-### Podstawowa komenda
+---
+
+## The workflow
+
+```
+react-constitution   once per project — writes AGENTS.md
+      ↓
+react-feature        branch + specs/NNN-slug/ + npm run gen
+      ↓
+react-prototype      static HTML using the project's OWN Tailwind build
+      ↓
+react-spec           spec with unknowns marked [NEEDS CLARIFICATION]
+      ↓
+react-clarify        ≤5 targeted questions, answers written into the spec
+      ↓
+react-implement      code, via the generator; references/web.md for detail
+      ↓
+react-verify         runs every gate; records real results in review.md
+      ↓
+react-analyze        read-only drift check: spec ↔ code ↔ AGENTS.md
+      ↓
+react-feedback       capture corrections; promote recurring ones to rules
+```
+
+Side skills: `react-update`, `react-i18n`, `react-theme`.
+
+### How you invoke them
+
+| Agent | Invocation | Wiring |
+|---|---|---|
+| **Claude Code** | `/react-verify` | `.claude/skills/*` → symlinks to `.agents/skills/` |
+| **Codex** | `$react-verify` | reads `.agents/skills/` and `AGENTS.md` natively — nothing generated |
+| **Gemini CLI** | `/react:verify` | `.gemini/commands/react/*.toml` inject the canonical `SKILL.md` via `@{...}` |
+
+All three read the same `AGENTS.md` (`CLAUDE.md` and `GEMINI.md` link to it).
+
+---
+
+## Architecture
+
+Two axes, both machine-enforced. **Atomic design governs shared presentation;
+feature slices govern domain code.**
+
+```
+src/components/atoms/        Button, Input, Badge, Skeleton   — props only, no logic
+src/components/molecules/    FormField, EmptyState, ErrorState — composed atoms
+src/components/organisms/    SidebarNav                        — a section of UI
+src/components/templates/    AppShell                          — layout, slots, NO data
+src/features/<slug>/         api · components · hooks · pages · types · index.ts
+```
+
+- Atomic flow is strictly downward: atoms → molecules → organisms → templates.
+  An atom importing a molecule fails `npm run lint`.
+- Atomic design's **pages** layer is a feature's `pages/` — where real data meets
+  a template.
+- Features never import each other. A feature's `index.ts` is its only public
+  surface; deep imports fail lint.
+- Placement rule: used by one feature → inside it; used by two → promote it.
+
+Based on [bulletproof-react](https://github.com/alan2207/bulletproof-react)'s
+feature slices and [atomic design](https://bradfrost.com/blog/post/atomic-web-design/)
+for the shared layer.
+
+---
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `react-dev init <name>` | Create a project. `--agent claude` (repeatable), `--here`, `--force`, `--no-git` |
+| `react-dev check` | Which agent CLIs and build tools are available |
+| `react-dev doctor [path]` | Check a project against 19 invariants the workflow depends on |
+| `react-dev sync [path]` | Re-install skills and agent wiring; never touches `AGENTS.md` |
+
+Inside a generated project:
+
+| Command | What it does |
+|---|---|
+| `npm run gen -- feature\|component\|hook\|page` | Deterministic scaffolding |
+| `npm run verify` | The gate |
+| `npm run e2e` / `npm run a11y` | Playwright flows / axe |
+| `npm run test:mutation` | Stryker — proves the tests actually test |
+| `npm run storybook` | Every component state, light and dark |
+| `npm run api:generate` | Types + client + Zod from the OpenAPI contract |
+
+---
+
+## Stack
+
+React 19 · TypeScript (strict, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`)
+· Vite · Tailwind v4 `@theme` tokens · TanStack Query · Zod · React Hook Form ·
+i18next (lazy per-locale) · Vitest · Playwright + axe · Storybook 10 · Stryker · knip
+
+No dashboard template, no demo content, no chart library you did not ask for.
+`src/features/` starts empty on purpose.
+
+---
+
+## Development
 
 ```bash
-react-dev init <nazwa-projektu> [OPCJE]
+python -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/python -m pytest tests/ -q          # 22 CLI tests
+
+cd templates/react && npm install && npm run verify
 ```
 
-### Przykłady użycia
+`skills/*/SKILL.md` is the canonical source for all three agents — edit there,
+never in a generated project's `.claude/` or `.gemini/`.
 
-```bash
-# Utwórz nowy projekt z domyślnymi ustawieniami
-react-dev init moja-aplikacja
+See [ENTERPRISE-READINESS-AUDIT.md](ENTERPRISE-READINESS-AUDIT.md) for the
+analysis this rebuild came from, and [MIGRATION.md](MIGRATION.md) for what
+changed.
 
-# Inicjalizuj w bieżącym katalogu
-react-dev init . --ai claude
+## License
 
-# Inicjalizuj z konkretnym asystentem AI
-react-dev init moja-aplikacja --ai copilot
-
-# Pomiń inicjalizację git
-react-dev init moja-aplikacja --no-git
-
-# Wymuś scalenie z istniejącym katalogiem
-react-dev init --here --force
-
-# Utwórz projekt mobilny (React Native/Expo)
-react-dev init moja-aplikacja --type react-native --ai copilot
-```
-
-### Dostępne opcje
-
-- `--type <react|react-native>`: Wybierz typ projektu (React web lub React Native/Expo)
-- `--ai <asystent>`: Wybierz asystenta AI (copilot, claude, gemini, qwen, opencode, codex, windsurf, roo, amp)
-- `--here`: Inicjalizuj w bieżącym katalogu zamiast tworzyć nowy folder
-- `--force`: Pomiń potwierdzenie przy scalaniu z istniejącym katalogiem
-- `--no-git`: Pomiń inicjalizację repozytorium git
-- `--ignore-agent-tools`: Pomiń sprawdzanie narzędzi CLI asystenta AI
-- `--github-token <token>`: Token GitHub dla zapytań API
-
-### Sprawdzenie wymagań systemowych
-
-```bash
-react-dev check
-```
-
-Weryfikuje, czy wymagane narzędzia są zainstalowane i pokazuje dostępnych asystentów AI.
-
-
-## Jak Używać Komend AI
-
-Komendy działają zarówno dla projektów React (web), jak i React Native/Expo. W przypadku Expo generowane są ekrany w `app/(tabs)/` z routowaniem przez `expo-router` oraz rejestracją w `shared/utils/pageDiscovery.ts`.
-
-Po zainicjalizowaniu projektu, narzędzie wygeneruje komendy AI dla wybranego asystenta. Oto jak z nich korzystać:
-
-### Krok 1: Tworzenie Prototypu HTML
-```
-/react-prototype-creator
-```
-**Co robi:**
-- Tworzy prototyp HTML z Tailwind CSS na podstawie mockupu lub opisu
-- Usuwa stare prototypy z folderu `prototypes/`
-- Zapisuje nowy prototyp jako punkt wyjścia do rozwoju
-- Używa tylko HTML i Tailwind CSS (bez JavaScript)
-
-**Kiedy używać:** Na samym początku, gdy masz mockup lub opis UI do zaimplementowania
-
-### Krok 2: Analiza Wymagań
-```
-/react-requirements-creator
-```
-**Co robi:**
-- Analizuje prototypy HTML z folderu `prototypes/`
-- Tworzy szczegółową specyfikację implementacji
-- Zapisuje wymagania do folderu `requirements/`
-- Definiuje typy, hooki, serwisy i strukturę komponentów
-
-**Kiedy używać:** Po utworzeniu prototypu HTML, przed implementacją TypeScript
-
-### Krok 3: Implementacja TypeScript
-```
-/react-typescript-developer
-```
-**Co robi:**
-- Implementuje logikę TypeScript i typy
-- Tworzy niestandardowe hooki i serwisy
-- Obsługuje pobieranie danych i zarządzanie stanem
-- Czyta z plików wymagań utworzonych w Kroku 1
-
-**Kiedy używać:** Po utworzeniu wymagań, przed tworzeniem komponentów
-
-### Krok 4: Kompletna Implementacja Strony
-```
-/react-page-developer
-```
-**Co robi:**
-- Buduje kompletne strony React
-- Łączy wiele komponentów
-- Implementuje logikę na poziomie strony i routing
-- Tworzy pełne strony aplikacji
-- W projektach Expo generuje ekrany React Native w `app/(tabs)/`, stylowane przez `StyleSheet` i korzystające z `useThemeColors()`
-
-**Kiedy używać:** Do tworzenia kompletnych stron lub widoków aplikacji
-
-### Utrzymanie i Konfiguracja (Opcjonalne)
-
-Poniższe komendy są pomocnicze i można ich używać w dowolnym momencie rozwoju projektu.
-
-#### Aktualizacje i Modyfikacje
-```
-/react-page-updater
-```
-**Co robi:**
-- Aktualizuje istniejące strony i komponenty
-- Modyfikuje funkcjonalność zachowując strukturę
-- Obsługuje skoordynowane zmiany UI i logiki
-
-#### Dodawanie Języków
-```
-/react-language-creator
-```
-**Co robi:**
-- Dodaje nowe języki do projektu
-- Automatycznie wykrywa istniejące przestrzenie nazw (namespaces)
-- Generuje poprawne pliki tłumaczeń w oparciu o strukturę języka referencyjnego
-
-#### Tworzenie Motywów
-```
-/react-theme-creator
-```
-**Co robi:**
-- Tworzy kompleksowe definicje motywów (kolory, style)
-- Generuje palety kolorów (12 odcieni)
-- Dodaje motyw do konfiguracji aplikacji
-
-## Przykładowy Przepływ Pracy
-
-1. **Utwórz nowy projekt:**
-   ```bash
-   react-dev init sklep-internetowy --ai copilot
-   cd sklep-internetowy
-   ```
-
-2. **Otwórz projekt w edytorze kodu** (VS Code, Cursor, itp.)
-
-3. **Użyj komend AI w kolejności:**
-   - `/react-prototype-creator` - Stwórz prototyp HTML na podstawie mockupu strony produktu
-   - `/react-requirements-creator` - Przeanalizuj prototyp i określ wymagania
-   - `/react-typescript-developer` - Utwórz typy i serwisy dla produktów
-   - `/react-page-developer` - Stwórz kompletną stronę listy produktów
-
-4. **Testuj i iteruj** używając `/react-page-updater` gdy potrzebne są zmiany
-
-5. **Konfiguracja (Opcjonalnie):**
-   - `/react-language-creator` - Dodaj kolejne języki (np. niemiecki, hiszpański)
-   - `/react-theme-creator` - Stwórz unikalny motyw dla swojego sklepu
-
-### Przykład dla React Native / Expo
-
-1. **Utwórz nowy projekt mobilny:**
-   ```bash
-   react-dev init sklep-mobile --type react-native --ai copilot
-   cd sklep-mobile
-   npm install
-   npx expo start   # lub npm run android / npm run ios
-   ```
-
-2. **Użyj komend AI w kolejności:**
-   - `/react-prototype-creator` - Prototyp ekranu w `prototypes/`
-   - `/react-requirements-creator` - Wymagania na podstawie prototypu
-   - `/react-typescript-developer` - Logika/serwisy współdzielone w `shared/`
-   - `/react-page-developer` - Ekrany React Native w `app/(tabs)/`
-
-3. **Dodaj stronę do nawigacji** rejestrując ją w `shared/utils/pageDiscovery.ts` (oraz ukryj w `app/(tabs)/_layout.tsx` gdy ma być tylko w sidebarze)
-
-## Wspierani Asystenci AI
-
-| Asystent | Narzędzie CLI | Struktura Folderów | Format Pliku |
-|----------|---------------|-------------------|--------------|
-| **GitHub Copilot** | Wbudowane w IDE | `.github/prompts/` | `.prompt.md` |
-| **Claude Code** | `claude` | `.claude/commands/` | `.md` |
-| **Gemini CLI** | `gemini` | `.gemini/commands/` | `.toml` |
-| **Qwen Code** | `qwen` | `.qwen/commands/` | `.toml` |
-| **OpenCode** | `opencode` | `.opencode/command/` | `.md` |
-| **Codex CLI** | `codex` | `.codex/prompts/` | `.md` |
-| **Windsurf** | Wbudowane w IDE | `.windsurf/workflows/` | `.md` |
-| **Roo Code** | Wbudowane w IDE | `.roo/commands/` | `.md` |
-| **Amp** | `amp` | `.agents/commands/` | `.md` |
-
-
-
-## Struktura Projektu
-
-Po inicjalizacji, Twój projekt będzie miał (React web):
-
-```
-moj-projekt-react/
-├── requirements/           # Specyfikacje implementacji
-├── prototypes/             # Prototypy HTML
-├── src/
-│   ├── components/         # Komponenty React
-│   ├── hooks/              # Niestandardowe hooki
-│   ├── services/           # Serwisy API
-│   ├── types/              # Definicje TypeScript
-│   └── utils/              # Funkcje narzędziowe
-├── .github/prompts/       # Komendy asystenta AI (dla Copilot)
-├── .claude/commands/      # Komendy asystenta AI (dla Claude)
-└── package.json           # Zależności Node.js
-```
-
-Struktura dla React Native / Expo:
-
-```
-moj-projekt-expo/
-├── app/
-│   ├── (tabs)/
-│   │   ├── _layout.tsx     # Konfiguracja zakładek
-│   │   ├── index.tsx       # Dashboard/Home
-│   │   └── settings.tsx    # Ekran ustawień + Twoje ekrany
-│   └── _layout.tsx         # Root layout (Stack + Sidebar)
-├── components/             # Wspólne komponenty UI
-├── context/                # ThemeContext, SidebarContext
-├── locales/                # i18n (en/pl)
-├── shared/
-│   └── utils/pageDiscovery.ts # Rejestr stron dla sidebaru
-├── prototypes/             # Prototypy do analizy
-├── requirements/           # Specyfikacje funkcjonalne
-├── app.json
-└── package.json
-```
-
-## Wymagania Systemowe
-
-- **Python**: 3.11 lub wyższy
-- **Git**: Do kontroli wersji (opcjonalne, ale zalecane)
-- **Asystent AI**: Jeden z wspieranych asystentów (opcjonalne, ale zalecane)
-- **React Native/Expo**: Expo Go lub emulator (Android Studio / Xcode) do uruchamiania aplikacji mobilnej
-
-## Rozwiązywanie Problemów
-
-### Częste Problemy
-
-1. **Nie znaleziono asystenta AI**
-   ```bash
-   react-dev check  # Zweryfikuj instalację
-   react-dev init --ignore-agent-tools  # Pomiń sprawdzanie CLI
-   ```
-
-2. **Błędy uprawnień**
-   ```bash
-   # Na systemach Unix, upewnij się o uprawnieniach wykonywania
-   chmod +x .specify/scripts/*.sh
-   ```
-
-3. **Niepowodzenie inicjalizacji Git**
-   ```bash
-   react-dev init moj-projekt --no-git  # Pomiń konfigurację git
-   ```
-
-### Pomoc
-
-- Uruchom `react-dev --help` aby zobaczyć opcje komend
-- Uruchom `react-dev check` aby zweryfikować wymagania systemowe
-- Sprawdź [repozytorium GitHub](https://github.com/github/spec-kit) aby znaleźć problemy i dokumentację
-
-## Wskazówki dla Początkujących
-
-1. **Zacznij od małego projektu** - Przetestuj narzędzie na prostej stronie lub komponencie
-2. **Używaj komend kolejno** - Nie pomijaj kroków w workflow
-3. **Czytaj wygenerowane pliki wymagań** - Pomogą Ci zrozumieć strukturę projektu
-4. **Eksperymentuj z różnymi asystentami AI** - Każdy ma swoje mocne strony
-5. **Zachowuj kopie zapasowe** - Używaj git do śledzenia zmian
-
-## Licencja
-
-Ten projekt jest licencjonowany zgodnie z warunkami określonymi w pliku LICENSE.
+See [LICENSE](LICENSE).
