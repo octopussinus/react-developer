@@ -159,6 +159,7 @@ REQUIRED_SCRIPTS: tuple[tuple[str, str], ...] = (
     ("duplicates", "jscpd"),
     ("i18n:check", "locale parity (react-i18n)"),
     ("components:check", "component duplication across features (react-analyze)"),
+    ("build", "the production build -- catches what dev transpiles away"),
     ("gen", "the deterministic generator"),
 )
 

@@ -1,0 +1,9 @@
+{
+  "name": "react-dev-registry",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "gen": "node tools/add-item.mjs",
+    "build": "shadcn build --output public/r"
+  }
+}

@@ -22,10 +22,9 @@ npx shadcn@latest add <name>             # a primitive: select, dialog, dropdown
 npx shadcn@latest add @react-dev/<name>  # chart, data-table, theme-toggle
 ```
 
-The shadcn MCP is configured, so you can search the registries directly rather
-than guessing names. A registry component arrives with its own story and test
-and installs its dependency only then — so reaching for it is cheaper than
-writing one, and keeps the core minimal.
+The shadcn MCP is configured — search the registries rather than guessing names.
+A registry component arrives with its own story and test and installs its
+dependency only then, so reaching for it beats writing one.
 
 **Only if nothing exists, continue.**
 
@@ -38,16 +37,12 @@ writing one, and keeps the core minimal.
 | two, but they would diverge | leave both, `// duplicate-ok: <reason>` in each | — |
 | three or more | the right atomic layer | `npm run gen -- <layer> <Name>` |
 
-**Start feature-local, always.** The test for sharing is not "do these look
-alike" but **"must they change together"** — two copies that drift apart cost
-nothing to delete, while one shared component that two features pull in opposite
-directions grows a props soup nobody can safely change. At two copies, justified
-duplication is a correct answer; at three, the evidence is in (the rule of
-three) and it is one component.
-
-`npm run components:check` enforces that a copy is at least *deliberate*: it
-fails on an unjustified duplicate and prints both routes. It never forces you to
-share.
+**Start feature-local, always.** The test is not "do these look alike" but
+**"must they change together"** — copies that drift cost nothing to delete, while
+a shared component two features pull apart grows a props soup nobody can safely
+change. At two, justified duplication is a correct answer; at three the evidence
+is in. `npm run components:check` enforces only that a copy is *deliberate*; it
+never forces you to share.
 
 ## 3. Which layer?
 
@@ -90,17 +85,20 @@ A second feature needs it → promote, do not copy:
 npm run gen -- promote <feature> <ComponentName> --to=molecule
 ```
 
-That moves the component, its test and its story, retitles the story for the new
-layer, rewrites every importer to the barrel, and updates the barrel. Doing it
-by hand is where an importer gets left on the old path.
+That moves the component, its test and its story, retitles the story, rewrites
+every importer to the barrel, and updates the barrel. By hand is where an
+importer gets left on the old path.
 
-**After promoting, check it no longer reads domain state.** A shared layer must
-not know about your domain; if it does, lift the domain bits into props.
+**Then check it no longer reads domain state** — a shared layer must not know
+your domain. If it does, lift those bits into props.
+
+A second *project* needs it too? That is `react-publish` — the registry. Harder
+on purpose: a published item is a public API you cannot un-ship.
 
 ## Report
 
-What you reused or created, which layer and why, and the `npm run verify`
-result. If you promoted, say which importers were rewritten.
+What you reused or created, which layer and why, the `npm run verify` result,
+and — if you promoted — which importers were rewritten.
 
 ## Next
 

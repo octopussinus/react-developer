@@ -883,3 +883,138 @@ def test_doctor_warns_when_the_component_map_plugin_is_unwired(tmp_path):
     config.write_text(config.read_text().replace("componentMapPlugin()", "/* removed */"))
     unwired = [d for d in diagnose(project) if d.check == "component map"]
     assert unwired and unwired[0].level == "warn", "removing the call must be detected"
+
+
+def test_registry_url_owner_matches_the_registry_homepage():
+    """A rename must move the install URL and the homepages together.
+
+    The install URL lives only in components.json; `registry.json` and its built
+    copy carry a `homepage`. Renaming the repo once already touched all three, and
+    nothing else compares them -- the `registry` job in ci.yml installs items from
+    a LOCAL path, so a URL pointing at the old owner stays green in CI and 404s in
+    every generated project.
+    """
+    import re
+
+    components = json.loads((REPO_ROOT / "templates/react/components.json").read_text())
+    url = components["registries"]["@react-dev"]
+    assert url.endswith("/r/{name}.json"), url
+
+    owner = re.match(r"https://([^.]+)\.github\.io/", url)
+    assert owner, f"not a GitHub Pages URL: {url}"
+    expected = owner.group(1)
+
+    for path in ("registry/registry.json", "registry/public/r/registry.json"):
+        homepage = json.loads((REPO_ROOT / path).read_text()).get("homepage", "")
+        found = re.match(r"https://github\.com/([^/]+)/", homepage)
+        assert found, f"{path} has no GitHub homepage: {homepage!r}"
+        assert found.group(1) == expected, (
+            f"{path} homepage owner {found.group(1)!r} != install URL owner "
+            f"{expected!r} -- one of them was missed in a rename"
+        )
+
+
+def test_the_registry_is_actually_published():
+    """A built registry nobody serves cannot be installed from another project.
+
+    Found by curling the URL in components.json and getting 404: the registry
+    built fine and CI verified every item installed -- from a local file path --
+    while nothing published it anywhere.
+    """
+    workflow = REPO_ROOT / ".github/workflows/registry-pages.yml"
+    assert workflow.is_file(), "no workflow publishes the registry"
+    text = workflow.read_text()
+    assert "actions/deploy-pages" in text, "builds the registry but never deploys it"
+    assert "upload-pages-artifact" in text
+    assert "pages: write" in text, "deploy-pages fails without this permission"
+    # It must publish the directory the built items land in.
+    assert "registry/public" in text
+
+
+def test_verify_runs_the_production_build():
+    """`verify` must include `build`, or it greenlights a broken release.
+
+    Top-level `await` in main.tsx passed format, lint, types, tests and every
+    other step for months: dev transpiles it happily and esbuild's browser
+    targets do not support it, so ONLY `vite build` fails. CI caught it after a
+    push; the local gate said green. A gate that cannot fail on a broken
+    production build is the inert-gate problem this project keeps guarding
+    against.
+    """
+    pkg = json.loads((REPO_ROOT / "templates/react/package.json").read_text())
+    assert "npm run build" in pkg["scripts"]["verify"], (
+        "verify does not run build -- a production-only failure would pass the gate"
+    )
+    # Last: it is the only writing step, and everything before it reads the tree.
+    assert pkg["scripts"]["verify"].rstrip().endswith("npm run build")
+
+
+def test_main_entry_has_no_top_level_await():
+    """The specific regression, named, because the error message is obscure."""
+    main = (REPO_ROOT / "templates/react/src/main.tsx").read_text()
+    stripped = "\n".join(
+        line for line in main.splitlines() if not line.lstrip().startswith(("//", "*", "/*"))
+    )
+    assert not re.search(r"^await\s", stripped, re.M), (
+        "top-level await in main.tsx breaks `vite build` for the configured "
+        "browser targets; use a promise chain instead"
+    )
+
+
+def test_registry_generator_publishes_an_item_with_the_right_target(tmp_path):
+    """`registry/tools/add-item.mjs` owns registry.json so nobody hand-edits it.
+
+    A missing or wrong `target` installs the component into the wrong atomic
+    layer of every consumer's project, and the failure surfaces in their repo,
+    not this one.
+    """
+    import shutil
+    import subprocess
+
+    registry = tmp_path / "registry"
+    shutil.copytree(REPO_ROOT / "registry", registry,
+                    ignore=shutil.ignore_patterns("public", "node_modules"))
+    # The script reads the template's package.json two levels up.
+    (tmp_path / "templates").mkdir()
+    shutil.copytree(REPO_ROOT / "templates" / "react", tmp_path / "templates" / "react",
+                    ignore=shutil.ignore_patterns("node_modules", "dist", "test-results",
+                                                  "playwright-report"))
+
+    component = tmp_path / "src.tsx"
+    component.write_text(
+        "import { Line } from 'recharts';\n"
+        "import { cn } from '@/lib/cn';\n"
+        "export function Sparkline() {\n  return <div className={cn('h-8')} />;\n}\n"
+    )
+
+    result = subprocess.run(
+        ["node", "tools/add-item.mjs", "molecule", "Sparkline", "--from", str(component)],
+        cwd=registry, capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    entry = next(
+        item for item in json.loads((registry / "registry.json").read_text())["items"]
+        if item["name"] == "sparkline"
+    )
+    assert entry["meta"]["atomicLayer"] == "molecule"
+    assert entry["files"][0]["target"] == "@components/molecules/sparkline.tsx"
+    # Declares what the consumer lacks; ignores the `@/` alias and what ships already.
+    assert entry["dependencies"] == ["recharts"]
+    assert (registry / "items" / "sparkline.tsx").is_file()
+
+    # Publishing the same name twice must fail rather than duplicate the entry.
+    again = subprocess.run(
+        ["node", "tools/add-item.mjs", "molecule", "Sparkline", "--from", str(component)],
+        cwd=registry, capture_output=True, text=True, timeout=120,
+    )
+    assert again.returncode == 1
+    assert "already in the registry" in again.stderr
+
+
+def test_react_publish_skill_refuses_single_project_components():
+    """The skill's whole job is to be the hard step; a soft one is just a copy."""
+    body = (REPO_ROOT / "skills" / "react-publish" / "SKILL.md").read_text()
+    assert "NEVER publish a component used by only one project." in body
+    assert "@/features" in body, "must check the component imports no feature"
+    assert "npm run gen --" in body, "must call the generator, not hand-edit registry.json"

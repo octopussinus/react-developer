@@ -1,0 +1,84 @@
+name: publish registry
+
+# The registry is what makes a component reusable ACROSS projects: a generated
+# project's components.json points `@react-dev` at this Pages URL, and
+# `npx shadcn add @react-dev/<item>` fetches it from here.
+#
+# Without this workflow the URL 404s, which is a silent failure: the item simply
+# cannot be installed, and nothing in CI notices because the `registry` job
+# installs from a local path.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'registry/**'
+      - '.github/workflows/registry-pages.yml'
+  workflow_dispatch:
+
+# Pages needs these; `contents: read` alone cannot deploy.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never cancel a deploy half-way: a partially published registry serves some
+# items and 404s others, which is worse than an out-of-date one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: build the registry
+        working-directory: registry
+        run: npx shadcn@latest build --output public/r
+
+      # A built file that does not parse would publish a registry nobody can
+      # install from, and the error would surface in someone else's project.
+      - name: every item is valid json with a target
+        working-directory: registry/public/r
+        run: |
+          for file in *.json; do
+            node -e "
+              const item = require('./$file');
+              if (item.name === undefined && item.items === undefined)
+                throw new Error('$file: neither an item nor an index');
+              for (const f of item.files ?? [])
+                if (!f.target) throw new Error('$file: ' + f.path + ' has no target');
+            "
+          done
+          echo "validated $(ls *.json | wc -l) files"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: registry/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      # Prove the thing a consumer actually does: fetch an item by URL.
+      - name: the published registry answers
+        run: |
+          base="${{ steps.deployment.outputs.page_url }}"
+          for item in chart data-table theme-toggle; do
+            url="${base%/}/r/${item}.json"
+            code=$(curl -s -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 5 "$url")
+            echo "$url -> $code"
+            [ "$code" = "200" ] || exit 1
+          done

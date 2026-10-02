@@ -401,6 +401,65 @@ is not a good enough reason, and it will say so.
 
 ---
 
+## Using the same component in another project
+
+Three levels, and the assistant handles the first two by itself:
+
+| Level                       | When                          | What happens                                                      |
+| --------------------------- | ----------------------------- | ----------------------------------------------------------------- |
+| Inside one feature          | always                        | The component is created in that feature's folder                 |
+| Shared in this project      | a second page needs it        | `promote` moves it to a shared folder, and every use is rewritten |
+| **Shared between projects** | a **second project** needs it | You publish it to the registry — see below                        |
+
+The third one is **not automatic, on purpose**. Once a component is published,
+other projects install it, and you cannot un-publish it — so it is a decision you
+make, not something that happens quietly in the background.
+
+To publish, ask for it:
+
+```
+> /react-publish
+```
+
+It will not just do it. First it checks four things, and stops if any fails:
+
+1. **A second project actually needs it** — it will ask you which one, by name.
+   "It feels generic" is not a reason; that is how a shared library fills up with
+   things nobody uses.
+2. **It knows nothing about your business.** A component that mentions `Order` or
+   `Dog` is useless in a project that has neither.
+3. **It uses your theme's colour names, not fixed colours.** Otherwise it drags
+   your brand into somebody else's app.
+4. **It is in the right folder level**, because that is baked in and every
+   project that installs it gets it in the same place.
+
+If it passes, the assistant adds it to the registry, checks it installs cleanly
+into a fresh project, and tells you to push.
+
+### Getting it into another project
+
+In the other project's folder:
+
+```
+npx shadcn@latest add @react-dev/NAME
+```
+
+Replace `NAME` with the component's name in lowercase-with-dashes — for example
+`npx shadcn@latest add @react-dev/data-table`. It drops the component, its story
+and its test into the right folder and installs anything extra it needs. Then run
+`npm run verify`.
+
+**This short form only works once the registry is published.** Until then — and
+right now it is not published — use the full path to the file instead:
+
+```
+npx shadcn@latest add /path/to/react-developer/registry/public/r/NAME.json
+```
+
+That does exactly the same thing and works today on your own machine. Ask the
+assistant to publish the registry if you want the short form; it needs the
+project's code hosting set up once.
+
 ## When something goes wrong
 
 | What you see                                           | What to do                                                                                                                                                |

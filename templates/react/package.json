@@ -27,7 +27,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "api:generate": "openapi-ts",
-    "verify": "npm run format:check && npm run lint && npm run lint:rules && npm run typecheck && npm run test && npm run deadcode && npm run duplicates && npm run i18n:check && npm run components:check",
+    "verify": "npm run format:check && npm run lint && npm run lint:rules && npm run typecheck && npm run test && npm run deadcode && npm run duplicates && npm run i18n:check && npm run components:check && npm run build",
     "lint:rules": "node --test eslint-rules/",
     "visual": "playwright test --grep @visual",
     "visual:update": "playwright test --grep @visual --update-snapshots",

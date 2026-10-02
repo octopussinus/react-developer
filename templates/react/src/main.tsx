@@ -24,15 +24,19 @@ async function enableMocks(): Promise<void> {
   await startMockWorker();
 }
 
-await enableMocks();
-
-createRoot(container).render(
-  <StrictMode>
-    <Providers>
-      <AppRouter />
-    </Providers>
-  </StrictMode>,
-);
+// NOT top-level await: esbuild targets browsers without it, so `await` here
+// fails the production build (`vite build`) while dev, which transpiles
+// differently, works fine. A promise chain keeps the ordering guarantee above
+// without needing the feature.
+void enableMocks().then(() => {
+  createRoot(container).render(
+    <StrictMode>
+      <Providers>
+        <AppRouter />
+      </Providers>
+    </StrictMode>,
+  );
+});
 
 // Dev-only feedback toolbar: click an element, describe what is wrong, and the
 // agent receives file:line + component + styles + screenshot via .ai/inbox/.

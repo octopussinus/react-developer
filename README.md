@@ -81,8 +81,8 @@ summary that leaves you guessing. `AGENTS.md` makes this binding for all three
 agents, and a test enforces that every skill has one.
 
 **Toolbox skills** sit outside the sequence and are called when needed:
-`react-component`, `react-feedback`, `react-update`, `react-i18n`,
-`react-theme`.
+`react-component`, `react-publish`, `react-feedback`, `react-update`,
+`react-i18n`, `react-theme`.
 
 Stage 2 is skippable when you already know the next feature. There is no
 separate prototype stage: if the screen was designed in Stitch, `react-spec`

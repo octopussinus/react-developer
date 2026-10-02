@@ -866,7 +866,8 @@ fails, so this list is a description of its behaviour rather than a chore:
 | 10  | `/react-ship`         | commit, push, PR — refuses on red                    |
 | 11  | `/react-merge`        | squash merge, roadmap ticked with the sha            |
 
-Toolbox, called when needed: `/react-component`, `/react-feedback`,
+Toolbox, called when needed: `/react-component`, `/react-publish`,
+`/react-feedback`,
 `/react-update`, `/react-i18n`, `/react-theme`.
 
 ### Docs

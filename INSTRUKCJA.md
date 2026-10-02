@@ -410,6 +410,67 @@ naprawdę tego używają, zwykle tworzy komponent, który nie pasuje do żadnej 
 
 ---
 
+## Użycie tego samego komponentu w innym projekcie
+
+Trzy poziomy — dwa pierwsze asystent ogarnia sam:
+
+| Poziom                        | Kiedy                           | Co się dzieje                                                          |
+| ----------------------------- | ------------------------------- | ---------------------------------------------------------------------- |
+| Wewnątrz jednej funkcji       | zawsze                          | Komponent powstaje w folderze tej funkcji                              |
+| Wspólny w tym projekcie       | potrzebuje go druga strona      | `promote` przenosi go do wspólnego folderu i poprawia wszystkie użycia |
+| **Wspólny między projektami** | potrzebuje go **drugi projekt** | Publikujesz go do rejestru — patrz niżej                               |
+
+Trzeci poziom **celowo nie jest automatyczny**. Po opublikowaniu komponentu inne
+projekty go instalują i nie da się tego cofnąć — więc to decyzja, którą
+podejmujesz świadomie, a nie coś, co dzieje się po cichu w tle.
+
+Żeby opublikować, poproś o to:
+
+```
+> /react-publish
+```
+
+Asystent nie zrobi tego od razu. Najpierw sprawdza cztery rzeczy i zatrzymuje
+się, jeśli któraś nie przejdzie:
+
+1. **Czy drugi projekt naprawdę tego potrzebuje** — zapyta, który, z nazwy.
+   „Wygląda ogólnie" to za słaby powód; tak właśnie wspólna biblioteka zapycha
+   się rzeczami, których nikt nie używa.
+2. **Czy nie wie nic o Twoim biznesie.** Komponent, w którym występuje `Order`
+   albo `Dog`, jest bezużyteczny w projekcie, który nie ma ani jednego, ani
+   drugiego.
+3. **Czy używa nazw kolorów z Twojego motywu, a nie sztywnych kolorów.** Inaczej
+   przeniesie Twoją kolorystykę do cudzej aplikacji.
+4. **Czy jest na właściwym poziomie folderów** — to jest zapisane w komponencie
+   na stałe i każdy projekt dostanie go w tym samym miejscu.
+
+Jeśli przejdzie, asystent dodaje go do rejestru, sprawdza, czy instaluje się
+czysto w świeżym projekcie, i mówi Ci, żeby wypchnąć zmiany.
+
+### Jak pobrać go w innym projekcie
+
+W folderze tego drugiego projektu:
+
+```
+npx shadcn@latest add @react-dev/NAZWA
+```
+
+Zamiast `NAZWA` wpisz nazwę komponentu małymi literami z myślnikami — na
+przykład `npx shadcn@latest add @react-dev/data-table`. Komenda wrzuca komponent,
+jego stronę przykładową i test do właściwego folderu oraz instaluje wszystko, czego
+on potrzebuje. Potem uruchom `npm run verify`.
+
+**Ta krótka forma działa dopiero wtedy, gdy rejestr jest opublikowany.** Dopóki
+nie jest — a w tej chwili nie jest — użyj pełnej ścieżki do pliku:
+
+```
+npx shadcn@latest add /ścieżka/do/react-developer/registry/public/r/NAZWA.json
+```
+
+Robi dokładnie to samo i działa od razu na Twoim komputerze. Jeśli chcesz krótką
+formę, poproś asystenta o opublikowanie rejestru — wymaga to jednorazowego
+włączenia hostingu dla repozytorium.
+
 ## Kiedy coś pójdzie nie tak
 
 | Co widzisz                                        | Co zrobić                                                                                                                                        |

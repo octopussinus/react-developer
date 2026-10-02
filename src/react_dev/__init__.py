@@ -55,6 +55,7 @@ WORKFLOW_ORDER = [
     "react-clarify",
     "react-implement",
     "react-component",
+    "react-publish",
     "react-verify",
     "react-analyze",
     "react-review",
