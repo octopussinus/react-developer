@@ -178,7 +178,7 @@ Wejdź do folderu projektu i uruchom asystenta:
 
 ```
 cd mojastrona
-claude
+claude --dangerously-skip-permissions
 ```
 
 Od teraz z nim rozmawiasz. Pisz normalnymi zdaniami, po polsku — rozumie. Komendy
@@ -315,13 +315,13 @@ etykietą `blocker` **zablokuje** następny krok, dopóki tego nie naprawisz. Je
 tak się stanie: `/react-implement` żeby naprawić, potem `/react-verify`, potem
 ten krok jeszcze raz.
 
-**Krok 11 — zakończ i odłóż.**
+**Krok 11 — zakończ.**
 
 ```
 /react-ship
 ```
 
-Porządnie pakuje pracę, razem z przeglądem. **Odmówi**, jeśli kontrole nie
+**Odmówi**, jeśli kontrole nie
 przechodzą albo coś jest niedokończone — i o to właśnie chodzi.
 
 Potem:
@@ -368,12 +368,25 @@ Kiedy Twoja strona działa w przeglądarce, w narożniku jest mały przycisk
 **Feedback**.
 
 1. Kliknij **Feedback**. Zmieni się na „Click an element…".
-2. Kliknij na stronie to, co wygląda źle.
-3. Pokaże się „Sent ✓".
+2. Kliknij na stronie to, o czym chcesz porozmawiać.
+3. Otworzy się mały panel. Możesz dopisać notatkę, a potem wybierz, czego chcesz:
+
+| Przycisk                       | Co robi                                                                             |
+| ------------------------------ | ----------------------------------------------------------------------------------- |
+| **Something is wrong with it** | Zgłasza to jako błąd do naprawy                                                     |
+| **I want this elsewhere too**  | Prosi, żeby dało się tego użyć także na innych stronach                             |
+| **Change how it looks**        | Traktowane jako zmiana kolorów/odstępów w całej stronie, nie łatka w jednym miejscu |
+| **Fix the wording**            | Trafia do plików z tłumaczeniami, żeby oba języki się zgadzały                      |
+| **Explain what this is**       | Tylko wyjaśnia, nic nie zmienia                                                     |
 
 To zapisuje dokładnie, który plik i która linijka narysowały ten element. Przy
-następnej wiadomości do asystenta on już wie, co wskazałeś — możesz po prostu
-napisać „odstępy są złe", bez tłumaczenia gdzie.
+następnej wiadomości do asystenta on już wie, co wskazałeś i o co poprosiłeś —
+więc nigdy nie musisz tłumaczyć, gdzie coś jest.
+
+**O przycisku „I want this elsewhere too":** asystent dopyta, _która jeszcze
+strona_ tego potrzebuje. I to celowo. Uwspólnianie czegoś, zanim dwie strony
+naprawdę tego używają, zwykle tworzy komponent, który nie pasuje do żadnej z nich
+— więc „na zapas" to za słaby powód i asystent to powie.
 
 ---
 

@@ -11,23 +11,40 @@ chat → .ai/inbox/*.json → .ai/feedback.md → AGENTS.md ## Learned rules
 ## `inbox/`
 
 Structured feedback captured from the running app by the dev-only feedback
-toolbar (`src/dev/feedback-toolbar.tsx`). Click an element, type what is wrong,
-and an entry lands here:
+toolbar (`src/dev/feedback-toolbar.tsx`). Click **Feedback**, click an element,
+then pick **what you want** — optionally with a note — and an entry lands here:
+
+| Button                     | `intent`  | What the agent does                                                                |
+| -------------------------- | --------- | ---------------------------------------------------------------------------------- |
+| Something is wrong with it | `fix`     | Treats it as a correction and runs the feedback ladder                             |
+| I want this elsewhere too  | `reuse`   | Asks which feature needs it, applies the layer test, then `npm run gen -- promote` |
+| Change how it looks        | `style`   | A **token** change via `react-theme`, never a per-component hex                    |
+| Fix the wording            | `wording` | Moves the string into a locale file via `react-i18n`                               |
+| Explain what this is       | `explain` | Just answers; records nothing                                                      |
 
 ```json
 {
-  "ts": "2026-10-01T12:30:00Z",
-  "comment": "status badge is a raw hex, should use the token",
+  "ts": "2026-10-02T14:36:09Z",
+  "intent": "reuse",
+  "comment": "the invoices page needs this same heading",
   "file": "src/features/orders/components/OrderCard.tsx",
   "line": 42,
   "component": "OrderCard",
   "selector": "div.order-card > span:nth-child(2)",
   "computedStyles": { "backgroundColor": "rgb(251, 191, 36)" },
-  "screenshot": ".ai/inbox/2026-10-01T12-30-00Z.png",
   "route": "/orders/42",
   "viewport": { "width": 1440, "height": 900 }
 }
 ```
+
+The `intent` matters as much as the location: it is the difference between the
+agent guessing what a sentence meant and knowing which command to run. `comment`
+is optional and may be `null` — the intent alone is actionable.
+
+**`reuse` does not mean "share it immediately".** The agent will ask which
+feature needs it, because a second real use is what decides the layer and proves
+the need. "Just in case" is the premature abstraction `components:check` is
+deliberately tuned to avoid forcing.
 
 The `file` and `line` are exact — resolved from React's dev-mode fiber, not
 guessed from the DOM. That is the difference between "fix the badge somewhere"

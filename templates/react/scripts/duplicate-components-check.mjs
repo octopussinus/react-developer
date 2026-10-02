@@ -15,6 +15,14 @@
  * Escape hatch: components that legitimately share a name (two different
  * `header.tsx`) carry `// duplicate-ok: <reason>` near the top. The reason is
  * required -- an opt-out with no justification is just a disabled rule.
+ *
+ * It deliberately does NOT push you to share at two copies. The rule of three
+ * (Fowler/Roberts) and AHA (Kent C. Dodds) both say the same thing, and Sandi
+ * Metz put it most plainly: duplication is far cheaper than the wrong
+ * abstraction, because deleting a copy is trivial while untangling a bad
+ * abstraction touches every dependent. So at two copies this asks for a
+ * decision and treats justified duplication as the default; at three it says
+ * promote. What it rejects is only the UNJUSTIFIED copy.
  */
 
 import { readdir, readFile } from 'node:fs/promises';
@@ -95,24 +103,36 @@ if (problems.length === 0) {
 console.error('\n  Duplicated components\n');
 
 for (const { name, places, partial } of problems) {
-  console.error(`  ${name}`);
+  console.error(`  ${name}  (${places.length} copies)`);
   for (const place of places) console.error(`    ${place.path}  (${place.kind})`);
 
   const shared = places.find((place) => place.kind.startsWith('shared'));
+  const feature = places[0].kind.replace('feature ', '');
+  const pascal = name
+    .replace(/\.tsx$/, '')
+    .split('-')
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join('');
+  const promote = `npm run gen -- promote ${feature} ${pascal} --to=molecule`;
+
   if (shared) {
-    console.error(`    -> a shared version already exists. Import it and delete the copy.`);
+    // Not an abstraction decision: the abstraction already exists.
+    console.error('    -> a shared version already exists. Import it and delete the copy.');
+  } else if (places.length >= 3) {
+    // Rule of three: three concrete uses is enough evidence that the shape is real.
+    console.error('    -> three copies. That is enough evidence the shape is real:');
+    console.error(`       ${promote}`);
+    console.error('       then delete the other copies.');
   } else {
-    const [first] = places;
-    const feature = first.kind.replace('feature ', '');
-    const pascal = name
-      .replace(/\.tsx$/, '')
-      .split('-')
-      .map((part) => part[0].toUpperCase() + part.slice(1))
-      .join('');
-    console.error(
-      `    -> npm run gen -- promote ${feature} ${pascal} --to=molecule` +
-        `   (then delete the other copy)`,
-    );
+    // Two copies is weak evidence. The literature is consistent that the wrong
+    // abstraction costs more than the duplication: deleting a copy is trivial,
+    // untangling a shared component two features pull in opposite directions is
+    // not. So at two, justified duplication is the DEFAULT, not the fallback.
+    console.error('    -> two copies is not yet evidence of a shared component. Pick one:');
+    console.error('       (a) they would diverge -> keep both, add');
+    console.error('           `// duplicate-ok: <reason>` to EVERY copy');
+    console.error('       (b) a design change must hit both -> it is one component:');
+    console.error(`           ${promote}`);
   }
   if (partial) {
     console.error('    note: only some copies carry `// duplicate-ok:` -- all of them must.');
@@ -121,9 +141,9 @@ for (const { name, places, partial } of problems) {
 }
 
 console.error(
-  '  If they only look alike and would diverge, keep them and add\n' +
-    '  `// duplicate-ok: <reason>` to EVERY copy. Premature sharing is worse\n' +
-    '  than duplication -- but an unjustified copy is worse than both.\n',
+  '  The test is not "do they look alike" but "must they change together".\n' +
+    '  Two copies that drift apart are cheap; one shared component pulled in two\n' +
+    '  directions is not. An UNJUSTIFIED copy is the only thing this rejects.\n',
 );
 
 exit(1);

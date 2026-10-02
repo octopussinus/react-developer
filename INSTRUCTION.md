@@ -360,12 +360,25 @@ While your site is running in the browser, there is a small **Feedback** button
 in the corner.
 
 1. Click **Feedback**. It changes to "Click an element…".
-2. Click the thing on your page that looks wrong.
-3. It says "Sent ✓".
+2. Click the thing on your page you want to talk about.
+3. A small panel opens. Add a note if you want, then pick what you want:
+
+| Button                         | What it does                                                                  |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| **Something is wrong with it** | Reports it as a problem to fix                                                |
+| **I want this elsewhere too**  | Asks for it to be made reusable on other pages                                |
+| **Change how it looks**        | Treated as a colour/spacing change across the whole site, not a one-off patch |
+| **Fix the wording**            | Sends it to the translation files, so both languages stay in step             |
+| **Explain what this is**       | Just explains it; changes nothing                                             |
 
 That records exactly which file and which line drew that thing. Next time you
-type anything to the assistant, it already knows what you pointed at, and you can
-just say "the spacing is wrong" without explaining where.
+type anything to the assistant, it already knows what you pointed at and what you
+asked for — so you never have to describe where something is.
+
+**About "I want this elsewhere too":** the assistant will ask you _which page_
+needs it as well. That is on purpose. Making something shared before two pages
+really use it tends to create a component that fits neither — so "just in case"
+is not a good enough reason, and it will say so.
 
 ---
 

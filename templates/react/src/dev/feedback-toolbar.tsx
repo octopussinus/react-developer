@@ -140,14 +140,55 @@ export function mountFeedbackToolbar(): void {
       .ring { position: fixed; pointer-events: none; z-index: 2147483646;
               outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 4px;
               transition: all 60ms linear; }
+      .panel { position: fixed; bottom: 16px; right: 16px; z-index: 2147483647;
+               width: 320px; padding: 14px; border-radius: 12px; background: #111827;
+               color: #f9fafb; font: 400 13px system-ui, sans-serif;
+               box-shadow: 0 10px 30px rgb(0 0 0 / .4); }
+      .panel h2 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
+      .panel .where { margin: 0 0 10px; font-size: 11px; color: #9ca3af;
+                      word-break: break-all; }
+      .panel textarea { width: 100%; box-sizing: border-box; min-height: 52px;
+                        margin-bottom: 10px; padding: 7px; border-radius: 7px;
+                        border: 1px solid #374151; background: #1f2937; color: #f9fafb;
+                        font: inherit; resize: vertical; }
+      .intents { display: flex; flex-direction: column; gap: 6px; }
+      .intents button { text-align: left; background: #1f2937; font: inherit; }
+      .intents button:hover, .intents button:focus-visible { background: #2563eb; }
+      .panel .cancel { margin-top: 10px; background: transparent; color: #9ca3af;
+                       padding: 4px 0; }
     </style>
     <div class="bar"><button type="button" id="pick">Feedback</button></div>
     <div class="ring" id="ring" hidden></div>
+    <div class="panel" id="panel" hidden role="dialog" aria-label="Send feedback">
+      <h2>What do you want here?</h2>
+      <p class="where" id="where"></p>
+      <textarea id="note" placeholder="Anything to add? (optional)"></textarea>
+      <div class="intents">
+        <button type="button" data-intent="fix">Something is wrong with it</button>
+        <button type="button" data-intent="reuse">I want this elsewhere too</button>
+        <button type="button" data-intent="style">Change how it looks</button>
+        <button type="button" data-intent="wording">Fix the wording</button>
+        <button type="button" data-intent="explain">Explain what this is</button>
+      </div>
+      <button type="button" class="cancel" id="cancel">Cancel (Esc)</button>
+    </div>
   `;
   document.body.appendChild(host);
 
   const pickButton = shadow.getElementById('pick') as HTMLButtonElement;
   const ring = shadow.getElementById('ring') as HTMLDivElement;
+  const panel = shadow.getElementById('panel') as HTMLDivElement;
+  const where = shadow.getElementById('where') as HTMLParagraphElement;
+  const note = shadow.getElementById('note') as HTMLTextAreaElement;
+
+  /** The element awaiting an intent. Held between picking and sending. */
+  let pending: Element | null = null;
+
+  function closePanel(): void {
+    panel.hidden = true;
+    pending = null;
+    note.value = '';
+  }
 
   function setPicking(next: boolean): void {
     picking = next;
@@ -174,7 +215,7 @@ export function mountFeedbackToolbar(): void {
     ring.hidden = false;
   }
 
-  async function onClick(event: MouseEvent): Promise<void> {
+  function onClick(event: MouseEvent): void {
     if (!picking || !highlighted) return;
     event.preventDefault();
     event.stopPropagation();
@@ -182,13 +223,27 @@ export function mountFeedbackToolbar(): void {
     const target = highlighted;
     setPicking(false);
 
-    const comment = window.prompt('What should be improved here?');
-    if (!comment) return;
+    // Ask what the user WANTS, not just what is wrong. An intent the agent can
+    // branch on beats free text it has to interpret -- "I want this elsewhere
+    // too" plus an exact file is everything `gen -- promote` needs.
+    pending = target;
+    const source = resolveSource(target);
+    where.textContent = source ? `${source.file}:${source.line}` : cssPath(target);
+    panel.hidden = false;
+    note.focus();
+  }
+
+  async function sendIntent(intent: string): Promise<void> {
+    const target = pending;
+    if (!target) return;
+    const comment = note.value.trim();
+    closePanel();
 
     const source = resolveSource(target);
     await send({
       ts: new Date().toISOString(),
-      comment,
+      intent,
+      comment: comment || null,
       file: source?.file ?? null,
       line: source?.line ?? null,
       column: source?.column ?? null,
@@ -207,10 +262,19 @@ export function mountFeedbackToolbar(): void {
     window.setTimeout(() => setPicking(false), 1200);
   }
 
-  pickButton.addEventListener('click', () => setPicking(!picking));
+  pickButton.addEventListener('click', () => {
+    closePanel();
+    setPicking(!picking);
+  });
+  (shadow.getElementById('cancel') as HTMLButtonElement).addEventListener('click', closePanel);
+  for (const button of shadow.querySelectorAll<HTMLButtonElement>('[data-intent]')) {
+    button.addEventListener('click', () => void sendIntent(button.dataset['intent'] ?? 'fix'));
+  }
   document.addEventListener('mousemove', onMove, true);
-  document.addEventListener('click', (e) => void onClick(e), true);
+  document.addEventListener('click', onClick, true);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') setPicking(false);
+    if (e.key !== 'Escape') return;
+    closePanel();
+    setPicking(false);
   });
 }

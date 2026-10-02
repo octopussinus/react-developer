@@ -34,11 +34,20 @@ writing one, and keeps the core minimal.
 | Used by | Where | Command |
 |---|---|---|
 | one feature | `src/features/<slug>/components/` | `npm run gen -- component <slug> <Name>` |
-| two or more | the right atomic layer | `npm run gen -- <layer> <Name>` |
+| two, and a design change must hit both | the right atomic layer | `npm run gen -- <layer> <Name>` |
+| two, but they would diverge | leave both, `// duplicate-ok: <reason>` in each | — |
+| three or more | the right atomic layer | `npm run gen -- <layer> <Name>` |
 
-**Start feature-local when in doubt.** Promoting later is one command;
-un-sharing something is a refactor across callers. Do not design for reuse that
-has not happened.
+**Start feature-local, always.** The test for sharing is not "do these look
+alike" but **"must they change together"** — two copies that drift apart cost
+nothing to delete, while one shared component that two features pull in opposite
+directions grows a props soup nobody can safely change. At two copies, justified
+duplication is a correct answer; at three, the evidence is in (the rule of
+three) and it is one component.
+
+`npm run components:check` enforces that a copy is at least *deliberate*: it
+fails on an unjustified duplicate and prints both routes. It never forces you to
+share.
 
 ## 3. Which layer?
 

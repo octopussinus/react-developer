@@ -804,3 +804,21 @@ def test_duplicate_components_check_fails_on_a_copy_and_passes_on_an_opt_out(tmp
     (project / "src/features/orders/components/status-badge.test.tsx").write_text(body)
     (project / "src/features/invoices/components/status-badge.test.tsx").write_text(body)
     assert run().returncode == 0
+
+    # Two copies must NOT lead with promote -- the rule of three and AHA both say
+    # two is weak evidence, and the wrong abstraction costs more than the copy.
+    orders.write_text(body)
+    invoices.write_text(body)
+    two = run()
+    assert two.returncode == 1
+    assert "two copies is not yet evidence" in two.stderr, two.stderr
+    assert "must they change together" in two.stderr
+
+    # Three copies: now it says promote, because the evidence is in.
+    third = project / "src/features/payments/components"
+    third.mkdir(parents=True)
+    (third / "status-badge.tsx").write_text(body)
+    three = run()
+    assert three.returncode == 1
+    assert "three copies" in three.stderr, three.stderr
+    assert "enough evidence" in three.stderr

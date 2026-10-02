@@ -29,8 +29,10 @@ export function feedbackPlugin() {
             await writeFile(file, JSON.stringify(payload, null, 2) + '\n', 'utf8');
 
             const where = payload.file ? `${payload.file}:${payload.line}` : payload.selector;
+            const intent = payload.intent ? `[${payload.intent}] ` : '';
+            const note = payload.comment ? `\n  "${payload.comment}"` : '';
             server.config.logger.info(
-              `\n  [feedback] ${where}\n  "${payload.comment}"\n  -> .ai/inbox/${stamp}.json\n`,
+              `\n  [feedback] ${intent}${where}${note}\n  -> .ai/inbox/${stamp}.json\n`,
             );
 
             res.statusCode = 204;
