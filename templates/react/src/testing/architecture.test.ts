@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ESLint } from 'eslint';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 /**
  * Proves the architecture is ENFORCED, not merely documented.
@@ -25,6 +25,21 @@ mkdirSync(scratch, { recursive: true });
 afterAll(() => {
   rmSync(scratch, { recursive: true, force: true });
 });
+
+/**
+ * Load the whole lint pipeline once, before any case is timed.
+ *
+ * `new ESLint()` is cheap; the FIRST `lintFiles()` is not -- it resolves the
+ * flat config, every plugin, the typescript import resolver and a TypeScript
+ * program. That took 1.8s on a warm dev machine and 5.3s on CI, which blew
+ * vitest's 5s default and failed the build on a cold start rather than on a real
+ * boundary violation. Paying it here keeps each case in the tens of
+ * milliseconds, so their default timeout still means something: a case that
+ * suddenly takes seconds is a genuine regression, not a cold cache.
+ */
+beforeAll(async () => {
+  await ruleIdsFor('src/__arch__', 'export const warmup = 1;\n');
+}, 120_000);
 
 async function ruleIdsFor(relativeDir: string, code: string): Promise<string[]> {
   const dir = join(process.cwd(), relativeDir);
