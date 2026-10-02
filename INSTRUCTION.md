@@ -3,7 +3,7 @@
 **For someone who has never written code.** You will not write any. You will
 type short commands and answer questions. The computer does the building.
 
-Polska wersja: [ZACZNIJ-TUTAJ.md](ZACZNIJ-TUTAJ.md)
+Polska wersja: [INSTRUKCJA.md](INSTRUKCJA.md)
 
 ---
 
@@ -72,7 +72,7 @@ command only exists in a fresh window.
 **3. Install the project tool:**
 
 ```
-uv tool install react-developer --from https://github.com/Mil000D/react-developer.git
+uv tool install react-developer --from https://github.com/octopussinus/react-developer.git
 ```
 
 **4. Install the assistant:**

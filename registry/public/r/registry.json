@@ -1,7 +1,7 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
   "name": "react-dev",
-  "homepage": "https://github.com/Mil000D/react-developer",
+  "homepage": "https://github.com/octopussinus/react-developer",
   "items": [
     {
       "name": "chart",

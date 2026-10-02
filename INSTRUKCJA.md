@@ -4,7 +4,7 @@
 wpisywać krótkie komendy i odpowiadać na pytania. Budowaniem zajmuje się
 komputer.
 
-English version: [START-HERE.md](START-HERE.md)
+English version: [INSTRUCTION.md](INSTRUCTION.md)
 
 ---
 
@@ -73,7 +73,7 @@ komenda istnieje tylko w świeżo otwartym oknie.
 **3. Zainstaluj narzędzie projektu:**
 
 ```
-uv tool install react-developer --from https://github.com/Mil000D/react-developer.git
+uv tool install react-developer --from https://github.com/octopussinus/react-developer.git
 ```
 
 **4. Zainstaluj asystenta:**

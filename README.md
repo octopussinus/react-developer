@@ -4,18 +4,18 @@ Bootstraps a **feature-sliced React project with atomic design**, wired for
 **Claude Code, Codex and Gemini CLI**, where the agent can prove its own work.
 
 ```bash
-uv tool install react-developer --from https://github.com/Mil000D/react-developer.git
+uv tool install react-developer --from https://github.com/octopussinus/react-developer.git
 
 react-dev init my-app
 cd my-app && npm install && npm run verify
 ```
 
-**Never written code before?** Start with **[START-HERE.md](START-HERE.md)** —
-every step in plain words, no jargon. Polish: **[ZACZNIJ-TUTAJ.md](ZACZNIJ-TUTAJ.md)**.
+**Never written code before?** Start with **[INSTRUCTION.md](INSTRUCTION.md)** —
+every step in plain words, no jargon. Polish: **[INSTRUKCJA.md](INSTRUKCJA.md)**.
 
-**Comfortable with a terminal? [GUIDE.md](GUIDE.md)** walks you from an empty
-directory to a shipped feature. The rest of this file is what the project is and
-why.
+**Comfortable with a terminal?** Every generated project ships a `GUIDE.md` that
+walks you from an empty directory to a shipped feature. The rest of this file is
+what the project is and why.
 
 `npm run verify` is green on the first commit. That is the point: an agent with
 a gate it must pass behaves differently from one producing plausible text.
@@ -195,9 +195,9 @@ never in a generated project's `.claude/` or `.gemini/`.
 
 | Doc | For |
 |---|---|
-| [GUIDE.md](GUIDE.md) | **how to build an app with this** — start here |
-| [ENTERPRISE-READINESS-AUDIT.md](ENTERPRISE-READINESS-AUDIT.md) | the analysis this rebuild came from |
-| [MIGRATION.md](MIGRATION.md) | what changed from v0.0.1 |
+| [INSTRUCTION.md](INSTRUCTION.md) | **how to build an app with this, in plain words** — start here |
+| [INSTRUKCJA.md](INSTRUKCJA.md) | the same thing in Polish |
+| `GUIDE.md` (in every generated project) | the terminal-level walkthrough |
 | [registry/README.md](registry/README.md) | adding a component to the registry |
 
 ## License

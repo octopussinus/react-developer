@@ -17,7 +17,7 @@ the first time; after that you will mostly live in step 5.
 | Both          | `react-dev check`             |
 
 ```bash
-uv tool install react-developer --from https://github.com/Mil000D/react-developer.git
+uv tool install react-developer --from https://github.com/octopussinus/react-developer.git
 ```
 
 ---
@@ -871,14 +871,10 @@ Toolbox, called when needed: `/react-component`, `/react-feedback`,
 
 ### Docs
 
-| Doc                             | For                                                           |
-| ------------------------------- | ------------------------------------------------------------- |
-| `START-HERE.md`                 | the whole pipeline in plain words, for a non-technical reader |
-| `ZACZNIJ-TUTAJ.md`              | the same thing in Polish                                      |
-| `AGENTS.md`                     | your rules. Edit this first                                   |
-| `README.md`                     | what the project is                                           |
-| `.ai/README.md`                 | the feedback loop in detail                                   |
-| `specs/README.md`               | the per-feature folder layout                                 |
-| `MCP.md`                        | MCP setup per agent                                           |
-| `eslint-rules/README.md`        | writing a promoted rule                                       |
-| `ENTERPRISE-READINESS-AUDIT.md` | why any of this is shaped the way it is                       |
+| Doc                      | For                           |
+| ------------------------ | ----------------------------- |
+| `AGENTS.md`              | your rules. Edit this first   |
+| `.ai/README.md`          | the feedback loop in detail   |
+| `specs/README.md`        | the per-feature folder layout |
+| `MCP.md`                 | MCP setup per agent           |
+| `eslint-rules/README.md` | writing a promoted rule       |

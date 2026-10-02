@@ -18,6 +18,6 @@
   },
   "iconLibrary": "lucide",
   "registries": {
-    "@react-dev": "https://mil000d.github.io/react-developer/r/{name}.json"
+    "@react-dev": "https://octopussinus.github.io/react-developer/r/{name}.json"
   }
 }

@@ -822,3 +822,26 @@ def test_duplicate_components_check_fails_on_a_copy_and_passes_on_an_opt_out(tmp
     assert three.returncode == 1
     assert "three copies" in three.stderr, three.stderr
     assert "enough evidence" in three.stderr
+
+
+def test_shipped_guide_only_references_docs_a_project_actually_has():
+    """GUIDE.md's Docs table must not name files the generated project lacks.
+
+    It listed `README.md` (projects have none) and
+    `ENTERPRISE-READINESS-AUDIT.md` (never copied into the template, and later
+    deleted from the repo too). A guide whose first table sends you to missing
+    files teaches the reader not to trust the rest of it.
+    """
+    guide = (REPO_ROOT / "templates" / "shared" / "GUIDE.md").read_text()
+    section = guide.split("### Docs", 1)
+    assert len(section) == 2, "GUIDE.md has no '### Docs' section"
+    table = section[1].split("\n##", 1)[0]
+
+    cited = re.findall(r"^\|\s*`([^`]+)`\s*\|", table, re.M)
+    assert cited, "Docs table lists nothing -- the test would pass vacuously"
+
+    roots = (REPO_ROOT / "templates" / "shared", REPO_ROOT / "templates" / "react")
+    for doc in cited:
+        assert any((root / doc).exists() for root in roots), (
+            f"GUIDE.md's Docs table cites `{doc}`, which no template root ships"
+        )
