@@ -12,7 +12,7 @@ src/react_dev/        the CLI (typer): init · check · doctor · sync
 skills/<name>/        CANONICAL skills: the single source of truth for all agents
 templates/react/      the project template (must pass its own npm run verify)
 templates/shared/     scaffolding copied into every project (CI, .mcp.json, .ai/)
-tests/                pytest — 22 tests
+tests/                pytest
 ```
 
 ## Hard rules
@@ -41,8 +41,14 @@ tests/                pytest — 22 tests
 ## Updating an installed CLI
 
 ```bash
-uv build --wheel && uv tool install --reinstall ./dist/react_developer-1.0.0-py3-none-any.whl
+rm -rf dist && uv build --wheel && uv tool install --reinstall ./dist/*.whl
 ```
+
+`rm -rf dist` is not tidiness: a leftover wheel from an older version makes
+`./dist/*.whl` expand to two paths and `uv` exits with a usage error. And never
+write the version into this command — it was pinned to `1.0.0` here and broke
+the moment the version moved, which is the same hardcoding this file forbids for
+printed command names.
 
 `sync` updates skills and agent wiring in existing projects but never project
 code, so **any new template surface a skill depends on must be added to
