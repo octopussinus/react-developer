@@ -1,68 +1,116 @@
-# ROADMAP.md format
+# Roadmap file shapes
+
+Two shapes. The index is read constantly, so it stays short; the per-feature file
+is read only while that feature is being built.
+
+## `specs/ROADMAP.md` — the index (keep under ~80 lines)
 
 ```markdown
 # Roadmap
 
-Source: <Stitch project / brief path>  ·  Generated: <date>
-Screens: <n> designed, <m> mapped
+Source: <Stitch project / brief path> · Generated: <date>
+Screens: <n> designed, <m> mapped · Features: <k> · Open questions: <q>
 
-## Design reconciliation
+## Order
 
-From `extract_design_context`, compared with `src/styles/index.css`.
+Prerequisites first, then:
 
-| Token | Design | Project | Action |
-|---|---|---|---|
-| primary | `#4f46e5` | `oklch(0.52 0.19 264)` | close enough, keep project |
-| radius | `12px` | `0.625rem` (10px) | prerequisite: update `--radius` |
+1–4 are parallelisable. Tracks: health (3→4→5), social (6–9), shopping (10→13).
 
 ## Prerequisites
 
-Blocking, and not features.
+Blocking, and not features. Detail: [roadmap/prerequisites.md](roadmap/prerequisites.md)
 
-| # | What | Why it blocks | Status |
-|---|------|---------------|--------|
-| P1 | OpenAPI contract at `openapi.json` | every feature's types generate from it | open |
+| #   | What                     | Blocks        | Status |
+| --- | ------------------------ | ------------- | ------ |
+| P1  | OpenAPI contract         | every feature | open   |
+| P4  | Brand tokens             | all UI        | open   |
 
 ## Features
 
-| # | Slug | Screens | What the user can do | Depends on | Size |
-|---|------|---------|----------------------|-----------|------|
-| 1 | `orders` | Order list, Order detail | browse, filter, open one, refund | P1 | M |
+| #   | Slug          | What the user can do          | Needs  | Size | Detail                                 |
+| --- | ------------- | ----------------------------- | ------ | ---- | -------------------------------------- |
+| 1   | `landing`     | read the public page, sign up | P4     | S    | [→](roadmap/001-landing.md)            |
+| 2   | `dog-profile` | see and edit one dog          | P1, 1  | M    | [→](roadmap/002-dog-profile.md)        |
 
 Size: S = one loop pass · M = one pass, bigger spec · L = **split before starting**
 
-### Splits I made, and why
-
-Record the non-obvious ones. A reviewer needs to check your judgement, not just
-your list.
-
-## Mock data
-
-What `react-feature` will generate handlers and factories for.
-
-### 1. `orders`
-
-- **Entity `Order`**: `id`, `customer`, `total` (minor units), `status`
-  (`pending|paid|failed|refunded`), `createdAt`
-- **Not in any API yet**: `refundReason` — the detail screen shows it
-  `[NEEDS CLARIFICATION]`
-- **Extremes the design must survive**: 90-char customer name · `total: 0` ·
-  a 200-row list · `refundedAt: null`
-- **States**: empty · loading · 500 · 403 for an agent attempting a refund
-
 ## Shared components this implies
 
-Not features.
+Not features — these go to an atomic layer or the registry.
 
-| Component | Layer | Source |
-|---|---|---|
+| Component  | Layer    | Source                             |
+| ---------- | -------- | ---------------------------------- |
 | data table | organism | `shadcn add @react-dev/data-table` |
 
-## Open questions
+## Design reconciliation
 
-- [ ] [NEEDS CLARIFICATION: ...]
+Token-by-token: [roadmap/prerequisites.md](roadmap/prerequisites.md#p4-brand-tokens)
 
 ## Out of scope
 
 What the design implies but this roadmap excludes, and why.
 ```
+
+Nothing else belongs here. No mock data, no per-feature behaviour lists, no
+question bodies — all of that lives in the file for the feature it concerns.
+
+## `specs/roadmap/NNN-<slug>.md` — one per feature
+
+This is what `react-feature <n>` reads. It should be everything needed to start
+that feature and nothing about any other.
+
+```markdown
+# 2. `dog-profile`
+
+Size **M** · Needs **P1, P3, feature 1**
+
+## Screens
+
+`react-spec` fetches these with `get_screen`, so record the **resource name**,
+not just the title — a title match needs a `list_screens` round trip and breaks
+when two screens are named alike.
+
+| Screen                             | Stitch resource                      |
+| ---------------------------------- | ------------------------------------ |
+| Luna's Profile & Health Overview   | `projects/abc123/screens/scr_0042`   |
+
+No Stitch screen for this feature? Write `Screens: none — specify from prose` so
+`react-spec` does not go looking.
+
+## What the user can do
+
+1. See the selected dog's name, photo, breed, age and weight.
+2. Switch to another of their dogs.
+3. [NEEDS CLARIFICATION: is editing in scope? the design shows an Edit button
+   but no form]
+   a) read-only now, editing as its own feature
+   b) inline editing in this feature
+
+## Mock data
+
+**Entity `Dog`** — `id`, `name`, `photoUrl`, `breed`, `bornOn`, `weightKg`,
+`vet` (`{ name, clinic }`)
+
+Not in any API yet: `compatibilityScore` [NEEDS CLARIFICATION].
+
+**Extremes the design must survive**
+- 40-character dog name, and a 90-character breed
+- `photoUrl: null` → initials fallback
+- `weightKg: 0.4` (puppy) and `92` (mastiff)
+- an owner with 1 dog, and with 12
+
+**States**: empty (no dogs yet) · loading · 404 (dog deleted) · 403 (not theirs)
+
+## Canonical record
+
+The designs disagreed; these values win, so every screen shows the same dog:
+
+| Field      | Value       | Designs showed              |
+| ---------- | ----------- | --------------------------- |
+| `weightKg` | `18.4`      | 18.4 (profile), 18.2 (dash) |
+| `vet.name` | `Dr. Anna`  | "Dr. Marta" ×1, "Dr. Anna" ×3 |
+
+## Shared components needed
+
+`data table` (organism, registry) · `avatar` (atom, `shadcn add avatar`)

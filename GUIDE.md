@@ -139,6 +139,29 @@ It inventories your screens (`list_screens` / `get_screen`), checks whether they
 were designed against your tokens (`list_design_systems`), maps screens to
 features, and — critically — **specifies the mock data each feature needs**.
 
+**The output is split, not one big file**, because building one feature should not
+mean reading the plan for all of them:
+
+```
+specs/
+├── ROADMAP.md              the index: table, order, tracks, shared components  (~80 lines)
+└── roadmap/
+    ├── prerequisites.md    the blocking decisions
+    ├── decisions.md        answered questions, and why each split was made
+    ├── canonical-records.md  one seeded value set so no two screens disagree
+    └── NNN-<slug>.md       per feature: behaviour, mock data, its own questions
+```
+
+`react-feature 2` reads the index plus **only** `roadmap/002-*.md`. On a 15-feature
+plan that is ~160 lines instead of ~530 — and it cannot blend a neighbouring
+feature's mock data into yours, which is the actual failure a single file causes.
+Each feature's open questions live in its own file too, so `react-clarify` never
+has to sweep the whole plan.
+
+It ends by telling you how many open questions there are and which ones block
+feature 1 — not by printing all of them. Use `/react-clarify` to decide those
+one at a time.
+
 **A screen is not a feature.** Several screens of one domain are one feature; one
 screen spanning three domains is three. Screens sharing a data shape must live
 together, because a feature cannot import a sibling.
@@ -184,11 +207,49 @@ roadmap, warns you if its prerequisites are not done, and marks it in progress.
 
 ## 5. The loop — one feature, start to finish
 
-This is the whole method. Seven steps, and you can skip 3 if there is no design.
+This is the whole method: stages 3 to 11 of the pipeline, repeated once per
+feature.
 
 ```
-feature → [prototype] → spec → clarify → implement → verify → analyze
+ 3 feature → 4 spec → 5 clarify → 6 implement
+                                       ↓
+ 11 merge ← 10 ship ← 9 review ← 8 analyze ← 7 verify
+     └─────────── back to 3 for the next feature
 ```
+
+`react-spec` is where the design enters: if the screen was designed in Stitch it
+fetches it there and translates it into your tokens. There is no separate
+prototype step.
+
+Lost your place? `react-dev status` derives it from the files and from git:
+
+```
+   #  Feature        Pipeline    Stage        Next
+●  1  landing        ━━━━━━━━    merged
+◐  2  dog-profile    ━━━━┄┄┄┄    clarified    react-implement
+○  3  weight         ━┄┄┄┄┄┄┄    planned      react-feature 3
+
+In flight: 2 dog-profile — 6 unticked tasks. Next: react-implement
+```
+
+### Read the last block, ignore the rest
+
+Every skill ends with a `Next` block, and nothing comes after it:
+
+```
+> Stage 4 of 11 complete. spec.md written — 7 [NEEDS CLARIFICATION] markers.
+> Do next: /react-clarify — resolves them one at a time, as a choice list.
+> Zero markers? /react-implement directly.
+```
+
+Three lines, always in that order: **what now exists**, **the one command to
+run**, and **at most one branch** if the result could go two ways. Never a menu —
+if you are looking at a list of options, something went wrong.
+
+So in practice you can read only that block and keep going. The stages exist so
+the agent can also **stop**: `react-ship` refuses on red gates, `react-merge`
+refuses on an unreviewed PR. A refusal arrives in the same block, with the
+command that fixes it.
 
 ### 5.1 Open the feature
 
@@ -210,30 +271,23 @@ modify   src/config/routes.ts
 **Never create these by hand.** Generated code has a known shape, which is what
 lets `react-dev sync` migrate it later.
 
-### 5.2 Prototype — pulled from Stitch, or drawn
-
-```
-> /react-prototype
-```
-
-**Designed in Stitch?** It fetches the screen with `get_screen` into
-`specs/001-order-tracking/`, then **translates** rather than keeping it: raw values
-→ role tokens, repeated blocks → `src/components/*`, plus the empty/loading/error
-states Stitch never shows.
-
-**No design?** It draws the prototype using **your project's own Tailwind build
-and tokens**, so what you approve is what gets built. View it at
-`http://localhost:5173/specs/001-order-tracking/prototype.html`.
-
-Look at it. Cheapest possible moment to change your mind.
-
-### 5.3 Spec it
+### 5.2 Spec it
 
 ```
 > /react-spec
 ```
 
-Produces `spec.md` with every unknown marked inline:
+**Designed in Stitch?** This is where it enters. The skill fetches the screen
+with `get_screen` into `specs/001-order-tracking/design/`, then **translates**
+rather than copying it: raw hex values → role tokens, repeated blocks →
+`src/components/*`, plus the empty/loading/error states Stitch never shows. A
+colour your `@theme` cannot express is listed under `## Tokens needed` for
+`/react-theme` to add once — never hardcoded per component.
+
+**No Stitch screen?** It works from your description and marks the layout
+decisions as questions instead of inventing them.
+
+Either way it produces `spec.md` with every unknown marked inline:
 
 ```markdown
 3. The list shows 20 orders per page.
@@ -244,19 +298,39 @@ Produces `spec.md` with every unknown marked inline:
 one that invented twelve answers. Read them — they are the questions you would
 otherwise discover in review.
 
-### 5.4 Answer the questions
+### 5.3 Answer the questions
 
 ```
 > /react-clarify
 ```
 
-Up to five questions, one at a time, each with concrete options and a
-recommendation. Answers are written into the spec, so the decision is recorded
-rather than remembered.
+**One question per message, as a multiple-choice list**, with a recommendation
+and what each option costs:
 
-"You decide" is a valid answer — it gets recorded as an assumption.
+```
+Brand tokens. The design is terracotta/cream; the codebase is still template blue.
 
-### 5.5 Implement
+1. Adopt the design into @theme  (recommended — the codebase has no brand to
+   protect, and 12 screens already use this one)
+2. Push the codebase tokens into Stitch and restyle the 12 screens
+3. Adopt now, then mirror back so future screens generate correct
+```
+
+In Claude Code this renders as a proper option picker you can click. Each answer
+is written into the file before the next question is asked, so decisions are
+recorded rather than remembered.
+
+**It asks at most 5 per run, and only what blocks the next feature.** A roadmap
+can easily have 16 open questions; the ones about checkout do not need answers
+before the landing page is built. The rest stay marked and come up when their
+feature does — so you are never handed a wall of questions.
+
+"You decide" is a valid answer; it gets recorded as an assumption, with a note on
+what would have to change if it turns out wrong.
+
+Run it again any time to work through more.
+
+### 5.4 Implement
 
 ```
 > /react-implement
@@ -265,7 +339,7 @@ rather than remembered.
 The agent calls the generator for structure and writes only the logic. It ticks
 `tasks.md` as it goes.
 
-### 5.6 Verify — do not skip this
+### 5.5 Verify — do not skip this
 
 ```
 > /react-verify
@@ -287,7 +361,7 @@ Runs everything and reports what it actually ran:
 A gate it did not run must be reported as `not run`. If it claims a pass without
 output, push back.
 
-### 5.7 Final read
+### 5.6 Final read
 
 ```
 > /react-analyze
@@ -297,8 +371,64 @@ Read-only. Checks the code against the spec and `AGENTS.md`: unimplemented
 requirements, scope creep, surviving `[NEEDS CLARIFICATION]`, missing states.
 Reports; never fixes.
 
-Then open the PR. `specs/001-order-tracking/` goes with it, so a reviewer sees
-what was agreed and what was built in one diff.
+### 5.7 Review the code
+
+```
+> /react-review
+```
+
+Reads the diff and reports React defects the gates cannot see: a response applied
+without checking it is still the current request, a `key={i}` on a list that
+filters, a `setInterval` capturing the first render's state, focus going nowhere
+after a dialog closes. Findings land in `specs/001-order-tracking/review.md` with
+a severity, and an unticked `**blocker**` stops `/react-merge`.
+
+It is deliberately strict about what it will **not** report: anything ESLint,
+`tsc`, axe or `/react-analyze` already fails the build on. That exclusion list is
+why it produces a handful of real findings instead of forty plausible ones.
+
+Works identically in all three agents — nothing here depends on a host command.
+
+### 5.8 Ship it
+
+```
+> /react-ship
+```
+
+Commits with a conventional message referencing the spec, pushes the branch and
+opens the PR — `specs/001-order-tracking/` goes with it, so a reviewer sees what
+was agreed and what was built in one diff. With no git remote it says so and
+prepares a local merge instead.
+
+It **refuses** if the gates are red, if `tasks.md` still has unticked boxes, if
+`review.md` has no recorded results, if a `[NEEDS CLARIFICATION]` survived, or
+if files you did not expect are staged. That refusal is the point: it is the
+last place a half-finished feature can be caught before a human spends time on
+it.
+
+`react-ship` attaches the review from 5.7 to the PR, so a human starts from what
+was already found. In Claude Code you can also run `/code-review` for a second
+opinion — but nothing in the pipeline requires it.
+
+### 5.9 Land it
+
+```
+> /react-merge
+```
+
+Checks the PR is green (`gh pr checks`), that a review actually happened, and
+that no `**blocker**` in `review.md` is unresolved. Then squash-merges, deletes
+the branch, **ticks the roadmap entry with the merge sha**, and tells you what
+that unblocked.
+
+If the review taught the project something general, it runs `react-feedback` so
+the lesson becomes a rule instead of a comment nobody reads again.
+
+It never deletes `specs/001-order-tracking/`. That folder is the record of why
+the code looks the way it does.
+
+> If you rebase or merge the base branch in after verifying, the gate run is
+> stale. Re-run `/react-verify`. `react-merge` checks for this.
 
 ---
 
@@ -311,14 +441,13 @@ $ react-dev init shop && cd shop && npm install && npm run verify
 $ npm run dev
 
 > /react-feature orders
-> /react-prototype  a table of orders: id, customer, total, status badge, and a
-                    status filter. include empty and loading states.
+> /react-spec  a table of orders: id, customer, total, status badge, and a
+               status filter. include empty and loading states.
 ```
 
-*(look at the prototype, ask for changes, iterate)*
+*(read the markers; they are the questions review would have found)*
 
 ```
-> /react-spec
 > /react-clarify
 ```
 
@@ -337,8 +466,19 @@ dependency you did not need.
 > /react-implement
 > /react-verify
 > /react-analyze
-$ git push -u origin 001-orders
+> /react-review
+> /react-ship
 ```
+
+*(the PR is open; get it reviewed)*
+
+```
+> /code-review
+> /react-merge
+```
+
+`react-merge` ticks the roadmap entry with the merge sha and says what that
+unblocked — which is the next feature you run.
 
 Second feature: `/react-feature invoices`. Same loop. The orders code is
 untouched, because a feature cannot import a sibling — lint stops it.
@@ -674,9 +814,14 @@ Run `sync` first — it clears the skill and version rows. Whatever remains is
 
 ## 10. The rhythm
 
-**Per feature:** `feature → [prototype] → spec → clarify → implement → verify → analyze`
+**Per feature:** `feature → spec → clarify → implement → verify → analyze →
+review → ship → merge`
 
-**Before every PR:**
+**Lost?** `react-dev status` — it reads the files and git, not a stored state,
+so it is right even after you edit something by hand.
+
+**Before every PR** — `/react-ship` checks all of this and refuses if any of it
+fails, so this list is a description of its behaviour rather than a chore:
 
 - [ ] `npm run verify` green
 - [ ] `npm run e2e` and `npm run a11y` green
@@ -705,8 +850,31 @@ Run `sync` first — it clears the skill and version rows. Whatever remains is
 
 ## Reference
 
+### The eleven stages
+
+| # | Command | Produces |
+|---|---|---|
+| 1 | `/react-constitution` | `AGENTS.md` |
+| 2 | `/react-roadmap` | `specs/ROADMAP.md` + `specs/roadmap/NNN-*.md` |
+| 3 | `/react-feature` | branch, `specs/NNN-slug/`, generated feature slice |
+| 4 | `/react-spec` | `spec.md` with `[NEEDS CLARIFICATION]` markers |
+| 5 | `/react-clarify` | answers recorded in the spec, one question at a time |
+| 6 | `/react-implement` | code + tests + i18n, `tasks.md` ticked |
+| 7 | `/react-verify` | `review.md` with real gate output |
+| 8 | `/react-analyze` | drift findings, read-only |
+| 9 | `/react-review` | findings in `review.md`, by severity |
+| 10 | `/react-ship` | commit, push, PR — refuses on red |
+| 11 | `/react-merge` | squash merge, roadmap ticked with the sha |
+
+Toolbox, called when needed: `/react-component`, `/react-feedback`,
+`/react-update`, `/react-i18n`, `/react-theme`.
+
+### Docs
+
 | Doc | For |
 |---|---|
+| `START-HERE.md` | the whole pipeline in plain words, for a non-technical reader |
+| `ZACZNIJ-TUTAJ.md` | the same thing in Polish |
 | `AGENTS.md` | your rules. Edit this first |
 | `README.md` | what the project is |
 | `.ai/README.md` | the feedback loop in detail |

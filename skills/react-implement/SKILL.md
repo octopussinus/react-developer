@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # React Implement
 
+**Stage 6 of 11** of the react-dev pipeline — after `react-clarify`, then `react-verify`. `react-dev status` shows where every feature stands.
+
 Turns `specs/NNN-<slug>/spec.md` into working code. Stop and read the spec
 first; if it still contains `[NEEDS CLARIFICATION]`, run `react-clarify`
 instead of guessing.
@@ -71,3 +73,9 @@ route around.
 
 Files created vs modified, the `tasks.md` state, the `react-verify` result, and
 anything in the spec you could not implement — with the reason.
+
+## Next
+
+> **Stage 6 of 11 complete.** N files created, M modified, `tasks.md` fully ticked.
+> **Do next:** `react-verify` — nothing downstream trusts an unverified branch.
+> **Something in the spec you could not build?** Say which, and why, before verifying.

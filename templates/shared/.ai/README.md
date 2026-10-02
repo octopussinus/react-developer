@@ -50,3 +50,56 @@ occurrences** promotes:
 | A missing capability   | a GitHub issue — a gap is not fixed by a rule                                 |
 
 Adding a lint rule fails CI for everyone, so the skill asks before it does.
+
+## How `file` and `line` are resolved
+
+From a `data-tsd-source="file:line:column"` attribute that
+[`@tanstack/devtools-vite`](https://tanstack.com/devtools/latest/docs/source-inspector)
+injects onto DOM elements in dev via an AST transform (see `vite.config.ts`).
+
+This used to read `fiber._debugSource`, which **React 19 removed** — so those
+fields silently became `null` on every entry. A build-time attribute does not
+depend on React internals and survives React majors. The component _name_ still
+comes from the fiber (`type.name` was not removed).
+
+If `react-dev doctor` reports `source injection: not wired`, the toolbar still
+captures a CSS selector and the comment, but the agent has to search for the
+code instead of being handed it.
+
+## How the agent finds out
+
+Two ways, and the first is automatic in Claude Code:
+
+**A `UserPromptSubmit` hook** in `.claude/settings.json` counts the files in
+`.ai/inbox/` and, when there are any, tells the agent before it answers your next
+message. It prints nothing when the inbox is empty, so it costs nothing on a
+normal turn. Review or disable it with `/hooks`.
+
+That hook is Claude Code only — it lives in `.claude/`, which Codex and Gemini CLI
+do not read. On those, say so yourself:
+
+```
+> check the feedback inbox
+```
+
+The `react-feedback` skill's description matches that phrasing, so it loads
+without you remembering the skill name.
+
+**Either way nothing happens behind your back.** The hook only reports a count;
+it does not read the entries or act on them. Triage happens when you ask.
+
+## Alternatives, if you want more than this
+
+The toolbar here is ~190 lines and deliberately thin. Its one real advantage is
+that it writes to the **filesystem**, so `react-feedback` reads entries directly,
+counts recurrences, and promotes them — no copy-paste step. If you want more
+capability, two maintained tools cover the same ground:
+
+| Tool                                                   | Shape                                                                                                          | Licence               | Trade-off                                                                                                                                                                                             |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Agentation](https://www.npmjs.com/package/agentation) | one React component you add to your layout; annotate, then **copy structured output** to paste into your agent | PolyForm-Shield-1.0.0 | richer annotation modes (text select, multi-select, draw regions); clipboard rather than filesystem, so the promotion ladder needs a manual paste. Not an OSI licence — check it against your policy. |
+| [stagewise](https://stagewise.io)                      | its own browser plus a built-in agent; click UI, prompt a change, it edits the codebase                        | AGPL-3.0              | far more capable and far more opinionated — it owns the editing loop rather than feeding yours. AGPL is worth a legal read before adopting.                                                           |
+
+Replacing the toolbar is cheap: delete `src/dev/feedback-toolbar.tsx` and
+`tools/feedback-plugin.mjs`, drop the dynamic import from `src/main.tsx`, and
+point `react-feedback` at wherever your chosen tool puts its output.

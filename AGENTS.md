@@ -31,6 +31,12 @@ tests/                pytest — 22 tests
   passes**, and neither is a CLI change until `pytest` passes.
 - **Printed command names must be derived from the files written**, never
   hardcoded. That mismatch shipped once already.
+- **Format `templates/shared/` with the template's prettier config explicitly:**
+  `cd templates/react && npx prettier --config .prettierrc --write '../shared/**/*.md'`.
+  Prettier resolves config from the *file's* location, and this repo has none, so
+  a plain run uses defaults (printWidth 80) while the generated project checks at
+  100. Table padding then differs and a fresh `npm run verify` fails on a doc
+  nobody touched. A test enforces this.
 
 ## Updating an installed CLI
 

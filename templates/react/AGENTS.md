@@ -104,9 +104,25 @@ add `tags: ['autodocs']`) and a test per hook and api module ·
 
 ## Workflow
 
-`react-feature` → `react-prototype` → `react-spec` → `react-clarify` →
-`react-implement` → `react-verify` → `react-analyze`. Skills live in
-`.agents/skills/`. Never resolve a `[NEEDS CLARIFICATION]` marker by guessing.
+Eleven stages: `react-constitution` → `react-roadmap` → `react-feature` →
+`react-spec` → `react-clarify` → `react-implement` → `react-verify` →
+`react-analyze` → `react-review` → `react-ship` → `react-merge`. Skills live in `.agents/skills/`.
+`react-dev status` says which stage each feature is at. Never resolve a
+`[NEEDS CLARIFICATION]` marker by guessing.
+
+### Always end with what to do next
+
+**Every reply ends with a `Next` block and nothing after it** — no summary, no
+closing remark. The user reads only that block to decide what to run:
+
+1. **What now exists** — one line: paths, counts, the verdict.
+2. **`Do next:` one exact command**, never a menu. Use this host's form:
+   `/react-spec` (Claude Code), `$react-spec` (Codex), `/react:spec` (Gemini).
+3. **At most one branch** — "gate red? fix and re-run". Two is a menu, and a menu
+   is not an answer.
+
+Each skill's `## Next` has its exact wording. Did work outside a skill? Write the
+block anyway.
 
 ## Learned rules
 

@@ -27,10 +27,11 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "api:generate": "openapi-ts",
-    "verify": "npm run format:check && npm run lint && npm run lint:rules && npm run typecheck && npm run test && npm run deadcode && npm run duplicates && npm run i18n:check",
+    "verify": "npm run format:check && npm run lint && npm run lint:rules && npm run typecheck && npm run test && npm run deadcode && npm run duplicates && npm run i18n:check && npm run components:check",
     "lint:rules": "node --test eslint-rules/",
     "visual": "playwright test --grep @visual",
-    "visual:update": "playwright test --grep @visual --update-snapshots"
+    "visual:update": "playwright test --grep @visual --update-snapshots",
+    "components:check": "node scripts/duplicate-components-check.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -59,6 +60,7 @@
     "@stryker-mutator/core": "^8.7.1",
     "@stryker-mutator/vitest-runner": "^8.7.1",
     "@tailwindcss/vite": "^4.0.8",
+    "@tanstack/devtools-vite": "^0.8.5",
     "@tanstack/react-query-devtools": "^5.62.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",

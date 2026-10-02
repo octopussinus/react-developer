@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # React Component
 
+**Toolbox skill** — not a pipeline stage. Called by `react-implement`, or directly whenever a component is needed.
+
 Answers one question before any code is written: **does this component need to
 exist, and where does it live?**
 
@@ -90,3 +92,10 @@ not know about your domain; if it does, lift the domain bits into props.
 
 What you reused or created, which layer and why, and the `npm run verify`
 result. If you promoted, say which importers were rewritten.
+
+## Next
+
+> **Component done.** <name> at `src/components/<layer>/<name>.tsx` with story and
+> tests; `npm run verify` green. Reused | created | promoted — and why.
+> **Do next:** continue the skill that called you — usually `react-implement`.
+> **Called directly?** `react-verify`, then use it in a feature.

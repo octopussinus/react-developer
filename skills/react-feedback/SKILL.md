@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # React Feedback
 
+**Toolbox skill** — not a pipeline stage. Called by `react-merge` when a review taught the project something, or when `.ai/inbox/` has entries.
+
 Feedback typed into a chat window has a half-life of one session. Feedback that
 lands in a lint rule has a half-life of the project. This skill moves each
 correction as far down that ladder as it honestly goes:
@@ -53,6 +55,10 @@ chat -> .ai/feedback.md -> AGENTS.md ## Learned rules -> ESLint rule -> CI gate
 
 ## Hard rules
 
+- NEVER push `AGENTS.md` over 8 KiB. Check with `wc -c AGENTS.md` before
+  appending. At the limit, promote to an ESLint rule instead, or move an existing
+  section into a doc `AGENTS.md` links to — Codex truncates, and a rule past the
+  cutoff is a rule nobody reads.
 - NEVER promote silently. Every new rule carries a one-line rationale citing the
   occurrences that caused it.
 - NEVER promote at one or two occurrences. One correction is a preference; three
@@ -66,3 +72,9 @@ chat -> .ai/feedback.md -> AGENTS.md ## Learned rules -> ESLint rule -> CI gate
 
 Captured, promoted (with mechanism), and still watching — with counts. If you
 added an ESLint rule, show it and the test that proves it fires.
+
+## Next
+
+> **Feedback processed.** N captured, M promoted (<mechanism>), K still watching.
+> **Do next:** return to whatever stage you were on — `react-dev status` if unsure.
+> **Promoted a rule?** `react-verify`, so the new rule runs against the codebase now.

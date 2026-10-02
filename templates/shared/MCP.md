@@ -76,6 +76,6 @@ With a **Google Cloud project** instead of a key, use the proxy:
 `STITCH_USE_SYSTEM_GCLOUD=1` to reuse a gcloud login.
 
 Once connected, `/react-roadmap` inventories your screens and maps them to
-features, and `/react-prototype` pulls a screen into the spec folder. The real
+features, and `/react-spec` pulls a screen into the spec folder. The real
 tool list — several popular guides have it wrong — is in that skill's
 `references/stitch.md`.

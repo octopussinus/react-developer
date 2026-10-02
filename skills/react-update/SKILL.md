@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # React Update
 
+**Toolbox skill** — not a pipeline stage. Called when `react-dev doctor` reports drift, or a gate fails for a reason the feature did not cause.
+
 Changing working code is riskier than writing new code, because there are
 already tests, callers and a spec that described something else.
 
@@ -42,3 +44,9 @@ already tests, callers and a spec that described something else.
 
 What changed and why, the blast radius you found, tests updated, the verify
 result, and anything you deliberately left alone.
+
+## Next
+
+> **Update done.** What changed, the blast radius, tests updated, what you left alone.
+> **Do next:** `react-verify` — an update touches code nobody specced today.
+> **Was this drift rather than a change?** `react-dev doctor` to confirm it is gone.

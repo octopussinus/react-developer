@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # React Theme
 
+**Toolbox skill** — not a pipeline stage. Called once per project at P4, and whenever the brand changes.
+
 Tokens live in one place and both platforms read them. Components reference
 roles, never raw values — which is what makes dark mode and rebranding a
 one-file change instead of a sweep through 200 components.
@@ -62,3 +64,10 @@ never says `bg-white dark:bg-gray-800`.
 
 Tokens added or changed, both schemes, the contrast ratios, and which
 components now pick up the change for free.
+
+## Next
+
+> **Tokens updated.** N added/changed in both schemes; contrast ratios above.
+> Components picking this up for free: <list>.
+> **Do next:** `react-verify` — then `npm run visual` to re-approve the baselines.
+> **Baselines now differ everywhere?** That is expected. Review once, then update.

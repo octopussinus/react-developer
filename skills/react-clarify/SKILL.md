@@ -1,44 +1,89 @@
 ---
 name: react-clarify
-description: Resolve the open unknowns in a spec by asking the user a few targeted questions, then write the answers into the spec. Use after react-spec, when the spec contains NEEDS CLARIFICATION markers.
+description: Resolve open questions in a roadmap or a feature spec by asking the user one at a time as a multiple-choice question, then recording each answer. Use after react-roadmap or react-spec, whenever a file contains NEEDS CLARIFICATION markers.
 allowed-tools: Read, Write, Edit, Glob, Grep
 ---
 
 # React Clarify
 
-Converts `[NEEDS CLARIFICATION]` markers into decisions recorded in the spec.
-Cheapest possible moment to fix a wrong assumption: before any code exists.
+**Stage 5 of 11** of the react-dev pipeline — after `react-spec`, then `react-implement`. `react-dev status` shows where every feature stands.
+
+Turns `[NEEDS CLARIFICATION]` markers into recorded decisions. Works on any of:
+
+- `specs/roadmap/prerequisites.md` — the ones that block everything
+- `specs/roadmap/NNN-<slug>.md` — a planned feature's own questions
+- `specs/NNN-<slug>/spec.md` — a feature being built
+
+With no file named, start at `prerequisites.md`, then the file for the next
+feature in the index. Grep rather than reading every file:
+
+```bash
+grep -rln "NEEDS CLARIFICATION" specs/
+```
+
+Cheapest possible moment to fix a wrong assumption is before any code exists.
+
+## The one rule that matters
+
+**Ask ONE question per message, as a multiple-choice question, and wait.**
+
+Never present a list of questions. A wall of 16 gets one vague reply or none,
+and the answers that do come back are unattributable. One at a time with named
+options gets a real decision every time.
+
+**Claude Code:** use `AskUserQuestion` — a real option picker, one question per
+call. **Codex and Gemini CLI have no equivalent** (Codex's `ask_user_question`
+was closed unmerged; Gemini bundles the MCP elicitation schemas but handles no
+elicitation request), so there you render the question as a numbered list and end
+your turn. Both forms, and the three details that make the text one work as well
+as the picker, are in [references/asking.md](references/asking.md).
 
 ## Procedure
 
-1. Read `specs/NNN-<slug>/spec.md` and collect every marker.
-2. **Rank by blast radius**, not by reading order. Ask about what changes the
-   data model or the component tree first; cosmetic unknowns can wait or be
-   defaulted.
-3. Ask **at most 5** questions, **one message at a time**. Wait for each answer
-   before asking the next — a wall of questions gets one vague reply.
-   For each question: offer 2–4 concrete options with a recommendation, and say
-   what each option costs. "What should pagination look like?" is a bad
-   question. "Cursor pagination (scales, no page numbers) or offset (page
-   numbers, drifts on insert)? I'd take cursor." is a good one.
-4. After each answer, **edit the spec immediately**:
-   - replace the marker with the decision, inline where it was
-   - append to `## Clarifications` with the date, question, answer, and the
-     consequence for the implementation
-5. If more than 5 markers remain, resolve the top 5 and leave the rest. Say
-   which ones you deferred and why they are safe to defer.
-6. If the user answers "you decide", that is a real answer: pick, record it as
-   `assumed`, and note what would need to change if it is wrong.
+1. **Collect** markers from the file you were pointed at — or, with none named,
+   from `prerequisites.md` plus the next feature's file. Never sweep all of
+   `specs/roadmap/`: a question about feature 14 is noise now.
+2. **Order by blast radius, then by what blocks the next step.** A question that
+   changes the data model or the token system comes before a cosmetic one.
+3. **Select only what is blocking now.** With a roadmap of 16 questions, ask the
+   few that gate the *first* feature; leave the rest marked. A question about
+   checkout does not need an answer before the landing page is built — and
+   asking it now spends the user's attention at the worst possible time.
+   **Hard cap: 5 questions per run.**
+4. **Ask**, one at a time, each with 2–4 concrete named options, a
+   recommendation, and what each option costs. Format and worked examples:
+   [references/asking.md](references/asking.md).
+5. **Record immediately after each answer**, before asking the next:
+   - replace the marker inline with the decision
+   - append to `## Clarifications`: date, question, answer, and the consequence
+   - if the answer was "you decide", mark it `assumed` and note what would have
+     to change if it is wrong
+6. **Report** what was resolved, what you deferred, and why the deferrals are
+   safe.
 
 ## Hard rules
 
-- Never answer your own question and move on. An unasked question is a guess.
-- Never widen scope. If an answer implies new work, note it under
-  `## Out of scope` and tell the user it needs its own feature.
-- Never delete a marker without recording its resolution.
+- NEVER ask more than one question in a message.
+- NEVER ask an open-ended question. "What should pagination look like?" wastes a
+  turn. Give the options and a recommendation.
+- NEVER answer your own question and move on. An unasked question is a guess
+  wearing a decision's clothes.
+- NEVER delete a marker without recording its resolution.
+- NEVER widen scope. If an answer implies new work, put it under
+  `## Out of scope` and say it needs its own feature.
+- NEVER batch the remainder into a summary list at the end. Deferred questions
+  stay as markers in the file, where the next run will find them.
 
 ## Report
 
-A table of question → answer → spec impact, plus the remaining marker count.
+| Question | Answer | Recorded as |
+|---|---|---|
 
-> M unknowns left. Next: `react-implement` when M is 0, otherwise another pass.
+Then:
+
+## Next
+
+> **Stage 5 of 11 complete.** Resolved N, deferred M (they block <feature>, not
+> this one). Every answer is recorded in the file, not just in this chat.
+> **Do next:** `react-implement` — the spec has no blocking unknowns left.
+> **Still markers that block now?** `react-clarify` again.

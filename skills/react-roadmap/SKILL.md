@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # React Roadmap
 
+**Stage 2 of 11** of the react-dev pipeline — after `react-constitution`, then `react-clarify`. `react-dev status` shows where every feature stands.
+
 Converts **designed screens** (or a written brief) into `specs/ROADMAP.md`: an
 ordered list of features, each sized for one pass of the loop, each with its mock
 data specified. `react-feature` then takes one entry at a time.
@@ -15,22 +17,12 @@ roadmap nobody agreed to is a wrong plan executed quickly.
 
 ## 1. Get the screens
 
-**Designed in Stitch?** Use the MCP — tool names, params and the polling rule are
-in [references/stitch.md](references/stitch.md):
+**Designed in Stitch?** `list_projects → list_screens → get_screen`, then
+`list_design_systems` to check whether the screens were designed against your
+codebase's tokens. Tool params, the polling rule and the token-direction decision:
+[references/stitch.md](references/stitch.md).
 
-```
-list_projects → list_screens → get_screen
-```
-
-**Check the token direction first.** `list_design_systems` tells you whether the
-project was designed against your codebase's tokens. If it was not, that is a
-prerequisite: write a `DESIGN.md` from `src/styles/index.css`, push it with
-`upload_design_md` + `create_design_system_from_design_md`, and
-`apply_design_system` to the existing screens. Pushing your tokens in beats
-extracting theirs and reconciling afterwards — and it removes any reason to
-hardcode a design's hex.
-
-**No Stitch?** Read the brief in full before splitting anything. Decomposing from
+**No Stitch?** Read the brief in full before splitting anything — decomposing from
 the first third produces overlapping features.
 
 ## 2. Inventory what exists
@@ -38,57 +30,75 @@ the first third produces overlapping features.
 So you never propose something already built:
 
 ```bash
-ls src/features/ && ls specs/ 2>/dev/null
-ls src/components/atoms src/components/molecules src/components/organisms
+ls src/features/ specs/ src/components/*/ src/testing/mocks/handlers/ 2>/dev/null
 cat src/config/routes.ts && ls src/lib/api/generated 2>/dev/null
-ls src/testing/mocks/handlers/
 ```
 
 ## 3. Map screens to features
 
 **A screen is not a feature.** Several screens of one domain are one feature; one
-screen spanning three domains is three. The binding constraint is that a feature
-cannot import a sibling, so screens that share a data shape belong together.
-Tests and worked examples: [references/decomposition.md](references/decomposition.md),
+screen spanning three domains is three. The binding constraint: a feature cannot
+import a sibling, so screens sharing a data shape belong together. Tests and a
+worked example: [references/decomposition.md](references/decomposition.md),
 [references/example.md](references/example.md).
+Record each screen's **resource name**, not just its title — `react-spec` fetches
+the design from it with one `get_screen` call.
 
 Separate **prerequisites** (API contract, auth, permissions, tokens, locales)
-from features. They block everything and are not features.
+from features — they block everything and are not features.
 
-## 4. Specify the mock data
+## 4. Specify the mock data, per feature
 
-Do this per feature, from what the screens actually display. It is the step that
-makes a frontend buildable before any backend exists — and the step most often
-skipped, which is why "it works" turns out to mean "it works with three tidy
-rows".
+Entities and fields, the extremes the design must survive, which states. It is
+what makes the frontend buildable before any backend exists, and the step most
+often skipped. Details, and the designs-contradict-themselves problem:
+[references/mock-data.md](references/mock-data.md).
 
-For each feature record:
+## 5. Write it SPLIT, never as one file
 
-- **Entities** and their fields, taken from what the screen shows. Mark any field
-  the design implies but no API provides.
-- **The extremes the design must survive**: longest realistic string, zero,
-  negative, null, a 200-row list. The screen will look fine with tidy data.
-- **States**: empty, loading, error, partial.
+`specs/ROADMAP.md` is the **index** — table, order, tracks, shared components,
+prerequisite summary. Detail goes in `specs/roadmap/`: `prerequisites.md` plus
+`NNN-<slug>.md` per feature (behaviour, screens, mock data, its own questions).
 
-## 5. Write `specs/ROADMAP.md`
+**Keep the index under ~80 lines.** It is read on every feature; a feature file is
+read only while that feature is built. One 500-line roadmap makes the agent read
+14 features' mock data to build the first, and blending neighbouring features'
+details is the failure that causes.
 
-Use the format in [references/format.md](references/format.md).
+Both shapes, and the cross-linking: [references/format.md](references/format.md).
 
-## 6. Report and stop
+## 6. Report, then offer to resolve the questions
 
-Prerequisite count, feature count, screens mapped, the first three features, and
-every open question.
+Report: prerequisite count, feature count, screens mapped, the first three
+features, and **how many** open questions there are — not the questions
+themselves.
+
+**Do not end with a list of questions.** A wall of questions gets one vague
+reply or none. They are already recorded as markers in the roadmap; the list adds
+nothing and buries the three the user actually needs to decide now.
+
+Instead, name only the ones that block feature 1 in the `## Next` block below.
 
 ## Hard rules
 
-- NEVER create branches, folders or code. Only `specs/ROADMAP.md`.
+- NEVER create branches, feature work folders (`specs/NNN-<slug>/`) or code.
+  `specs/ROADMAP.md` and `specs/roadmap/*.md` are planning output, not work.
+- NEVER write one monolithic roadmap. The index links; the detail lives per
+  feature.
+- NEVER let the index exceed ~80 lines. Move detail into the feature file.
 - NEVER emit an `L` feature as actionable — split it and say so.
 - NEVER invent a requirement. A gap in the design is an open question.
 - NEVER list a shared component as a feature.
 - NEVER skip the mock data section. A feature with no mock spec cannot be built
   before its API exists, which defeats the point of designing first.
+- NEVER dump the open questions as a flat list in your report. Record them as
+  markers, name only what blocks the next feature, and hand off to
+  `react-clarify` — which asks them one at a time, as a choice list.
 
-## Report
+## Next
 
-> N prerequisites, M features, S screens mapped. Review the roadmap, then:
-> `react-feature 1`
+> **Stage 2 of 11 complete.** N prerequisites, M features, S screens mapped →
+> `specs/ROADMAP.md` + `specs/roadmap/` (one file per feature). Q open questions,
+> K of them blocking feature 1: <name them>.
+> **Do next:** `react-clarify` — decides those K one at a time, as a choice list.
+> **Nothing blocking?** `react-feature 1`.

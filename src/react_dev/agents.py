@@ -178,6 +178,27 @@ User arguments for this run: {{{{args}}}}
 """
 
 
+def _prune(directory: Path, keep: list[str], key) -> list[str]:
+    """Delete entries of ``directory`` that are not in ``keep``.
+
+    Only ever called on directories this tool fully owns (``.claude/skills``,
+    ``.gemini/commands/react``) -- they are derived, and sync rewrites them.
+    """
+    if not directory.is_dir():
+        return []
+    wanted = set(keep)
+    gone: list[str] = []
+    for entry in sorted(directory.iterdir()):
+        if key(entry) in wanted:
+            continue
+        if entry.is_symlink() or entry.is_file():
+            entry.unlink()
+        else:
+            shutil.rmtree(entry)
+        gone.append(entry.name)
+    return gone
+
+
 def emit_for_agent(project: Path, agent: Agent, skill_names: list[str]) -> list[str]:
     """Create everything ``agent`` needs. Returns human-readable actions taken."""
     actions: list[str] = []
@@ -195,8 +216,13 @@ def emit_for_agent(project: Path, agent: Agent, skill_names: list[str]) -> list[
         actions.append(f"{CANONICAL_SKILLS_DIR}/ (native, no shim needed)")
     else:
         assert agent.skills_dir is not None
+        skills_dir = project / agent.skills_dir
         for name in skill_names:
-            link_or_copy(canonical / name, project / agent.skills_dir / name)
+            link_or_copy(canonical / name, skills_dir / name)
+        # Prune first-class: a skill that was removed upstream leaves a dangling
+        # symlink here, and the agent then offers a command whose body is gone.
+        for stale in _prune(skills_dir, skill_names, lambda p: p.name):
+            actions.append(f"{agent.skills_dir}/{stale} removed (no longer a skill)")
         actions.append(f"{agent.skills_dir}/ -> {CANONICAL_SKILLS_DIR}/ ({len(skill_names)} skills)")
 
     # 3. explicit command shims
@@ -217,6 +243,9 @@ def emit_for_agent(project: Path, agent: Agent, skill_names: list[str]) -> list[
             }
             # tomli_w handles all quoting/escaping -- never hand-roll TOML.
             (cmd_dir / f"{short}.toml").write_bytes(tomli_w.dumps(payload).encode("utf-8"))
+        expected = [f"{n.removeprefix('react-')}.toml" for n in skill_names]
+        for stale in _prune(cmd_dir, expected, lambda p: p.name):
+            actions.append(f"{agent.commands_dir}/{stale} removed (no longer a skill)")
         actions.append(f"{agent.commands_dir}/*.toml ({len(skill_names)} shims)")
 
     return actions

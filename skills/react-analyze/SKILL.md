@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Glob, Grep
 
 # React Analyze
 
+**Stage 8 of 11** of the react-dev pipeline — after `react-verify`, then `react-review`. `react-dev status` shows where every feature stands.
+
 Answers one question: **does the code do what the spec said, within the rules
 the project set?**
 
@@ -29,10 +31,15 @@ feature's code. Then check each axis:
    spec's word.
 5. **Rule compliance** — each `## Hard rules` line in AGENTS.md, checked:
    ```bash
+   npm run components:check   # same component in two features -- exits 1 on a hit
    grep -rn "as any\|@ts-ignore\|eslint-disable" src/features/<slug>/
    grep -rn "#[0-9a-fA-F]\{3,8\}\b" src/features/<slug>/        # raw colours
    grep -rnE ">[A-Z][a-z]+ [a-z]+" src/features/<slug>/ | grep -v "t("  # bare strings
    ```
+   **A non-zero `components:check` is a blocker.** It means a component was copied
+   into a second feature instead of promoted, so a design change now has to be
+   made twice. Its output names the `promote` command; it is part of `npm run
+   verify`, so this is also a sign the gate was not run.
 6. **Test reality** — does every hook and `api/` module have a test, every
    component a story? Do the tests assert behaviour, or just that something is
    defined?
@@ -55,3 +62,9 @@ verdict: ready for review | needs work
 
 If you find nothing, say that plainly and list what you checked, so the clean
 result is auditable rather than merely reassuring.
+
+## Next
+
+> **Stage 8 of 11 complete.** N findings (B blockers). Verdict: ready for review | needs work.
+> **Do next:** `react-ship` — commits, pushes, opens the PR.
+> **Needs work?** `react-implement` on the findings, then `react-verify` again.

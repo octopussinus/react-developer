@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # React i18n
 
+**Toolbox skill** — not a pipeline stage. Called by `react-implement` for any user-visible string.
+
 Keeps locales structurally identical. A half-translated locale that ships is a
 runtime hole no type-checker catches, so parity is enforced in CI:
 
@@ -42,3 +44,9 @@ npm run i18n:check    # every locale has exactly the keys `en` has
 ## Report
 
 Locale added, key count per namespace, `TODO:` count, and the parity result.
+
+## Next
+
+> **Locales updated.** <locale> added; N keys per namespace, M `TODO:` left; parity <result>.
+> **Do next:** `react-verify` — `npm run i18n:check` is part of the gate.
+> **`TODO:` entries left?** They ship as visible English. Say so explicitly.

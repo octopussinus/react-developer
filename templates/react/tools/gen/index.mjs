@@ -9,8 +9,9 @@
  *
  * Why it matters: "create the file, then update five other files consistently"
  * is exactly the task an LLM fails at silently. A generator does all five or
- * crashes. It is also testable (tools/gen/index.test.mjs) and gives generated
- * code a KNOWN SHAPE, which is what makes `react-dev sync` able to migrate it.
+ * crashes, and it gives generated code a KNOWN SHAPE, which is what makes
+ * `react-dev sync` able to migrate it. Tested from the CLI repo's pytest suite
+ * (tests/test_cli.py), which generates into a temp copy and runs prettier on it.
  *
  *   npm run gen -- feature   orders --route=/orders
  *   npm run gen -- component orders OrderCard
@@ -58,6 +59,47 @@ function toCamel(value) {
   return pascal[0].toLowerCase() + pascal.slice(1);
 }
 
+/**
+ * Format with the PROJECT's own prettier config before writing.
+ *
+ * Templates are hand-written strings, so whether a line fits depends on the
+ * name substituted into it: `gen -- feature orders` stayed under printWidth
+ * while `invoices` produced a 105-character signature, and `npm run verify`
+ * then failed on format:check immediately after generating. Formatting here
+ * makes the output correct for any name instead of for the names we happened
+ * to test.
+ *
+ * Soft dependency: if prettier cannot be loaded the generator still works, it
+ * just writes unformatted and says so.
+ */
+let prettierModule;
+let prettierTried = false;
+
+async function formatIfPossible(contents, absolute) {
+  if (!prettierTried) {
+    prettierTried = true;
+    try {
+      prettierModule = await import('prettier');
+    } catch {
+      console.log('  note     prettier unavailable; writing unformatted');
+      prettierModule = null;
+    }
+  }
+  if (!prettierModule) return contents;
+  try {
+    const config = await prettierModule.resolveConfig(absolute);
+    return await prettierModule.format(contents, { ...config, filepath: absolute });
+  } catch (error) {
+    // A template with a genuine syntax error must not be silently swallowed.
+    console.log(`  warn     could not format ${relativeTo(absolute)}: ${error.message}`);
+    return contents;
+  }
+}
+
+function relativeTo(absolute) {
+  return absolute.startsWith(ROOT) ? absolute.slice(ROOT.length + 1) : absolute;
+}
+
 async function write(relative, contents) {
   const absolute = join(ROOT, relative);
   if (existsSync(absolute)) {
@@ -65,7 +107,7 @@ async function write(relative, contents) {
     return false;
   }
   await mkdir(dirname(absolute), { recursive: true });
-  await writeFile(absolute, contents, 'utf8');
+  await writeFile(absolute, await formatIfPossible(contents, absolute), 'utf8');
   created.push(relative);
   console.log(`  create   ${relative}`);
   return true;
@@ -80,7 +122,7 @@ async function edit(relative, transform) {
     console.log(`  skip     ${relative} (no change needed)`);
     return;
   }
-  await writeFile(absolute, after, 'utf8');
+  await writeFile(absolute, await formatIfPossible(after, absolute), 'utf8');
   modified.push(relative);
   console.log(`  modify   ${relative}`);
 }

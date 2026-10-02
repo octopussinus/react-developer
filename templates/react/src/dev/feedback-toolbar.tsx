@@ -13,15 +13,21 @@
  * recurrences, and promotes anything seen 3+ times into a rule.
  */
 
-interface FiberSource {
-  fileName: string;
-  lineNumber: number;
-}
+/**
+ * Source location comes from `data-tsd-source="file:line:column"`, injected in
+ * dev by `@tanstack/devtools-vite` (see vite.config.ts).
+ *
+ * It used to come from `fiber._debugSource`, which **React 19 removed** -- that
+ * silently made `file`, `line` and `component` null in every entry, which is the
+ * most useful part of the payload. A build-time attribute does not depend on
+ * React internals, so it survives React majors.
+ *
+ * The component NAME still comes from the fiber: `type.name` was not removed.
+ */
 
 interface Fiber {
   return: Fiber | null;
   type: unknown;
-  _debugSource?: FiberSource;
   _debugOwner?: Fiber | null;
 }
 
@@ -40,22 +46,36 @@ function componentName(type: unknown): string | null {
   return null;
 }
 
-/** Walk up the fiber tree to the nearest component that has source info. */
-function resolveSource(element: Element): { file: string; line: number; component: string } | null {
-  let fiber = findFiber(element);
-  while (fiber) {
-    const source = fiber._debugSource;
-    const name = componentName(fiber.type);
-    if (source && name) {
-      return {
-        file: source.fileName.replace(`${window.location.origin}/`, '').replace(/^\/+/, ''),
-        line: source.lineNumber,
-        component: name,
-      };
-    }
+export interface SourceLocation {
+  file: string;
+  line: number;
+  column: number;
+  component: string | null;
+}
+
+/** Nearest ancestor carrying a source attribute, plus the owning component. */
+function resolveSource(element: Element): SourceLocation | null {
+  const stamped = element.closest('[data-tsd-source]');
+  const raw = stamped?.getAttribute('data-tsd-source');
+  if (!raw) return null;
+
+  // "file:line:column" -- rsplit, because a path may contain a colon.
+  const match = /^(.*):(\d+):(\d+)$/.exec(raw);
+  if (!match) return null;
+
+  let component: string | null = null;
+  let fiber = findFiber(stamped ?? element);
+  while (fiber && !component) {
+    component = componentName(fiber.type);
     fiber = fiber._debugOwner ?? fiber.return;
   }
-  return null;
+
+  return {
+    file: (match[1] ?? '').replace(/^\//, ''),
+    line: Number(match[2]),
+    column: Number(match[3]),
+    component,
+  };
 }
 
 function cssPath(element: Element): string {
@@ -171,6 +191,7 @@ export function mountFeedbackToolbar(): void {
       comment,
       file: source?.file ?? null,
       line: source?.line ?? null,
+      column: source?.column ?? null,
       component: source?.component ?? null,
       selector: cssPath(target),
       // `||` not `??`: an empty string should become null, and TS 5.9's DOM lib

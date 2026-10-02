@@ -5,6 +5,8 @@ description: Create or update AGENTS.md, the project constitution that every oth
 
 # React Constitution
 
+**Stage 1 of 11** of the react-dev pipeline — the first step, then `react-roadmap`. `react-dev status` shows where every feature stands.
+
 `AGENTS.md` at the repo root is the project's constitution. Every other skill in
 this workflow must cite it and must refuse work that contradicts it.
 
@@ -62,3 +64,10 @@ These exist because they are the failure modes this workflow is built to stop:
 Tell the user that `CLAUDE.md` and `GEMINI.md` are links to this file, so all
 three agents read the same constitution. If `react-dev doctor` reports them as
 stale, the fix is `react-dev sync`.
+
+## Next
+
+> **Stage 1 of 11 complete.** `AGENTS.md` written; `CLAUDE.md` and `GEMINI.md`
+> link to it, so all three agents read the same rules.
+> **Do next:** `react-roadmap` — design the pages in Stitch, then plan features.
+> **Rules not right yet?** Edit `AGENTS.md` and re-run this.

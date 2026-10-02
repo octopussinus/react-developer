@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep
 
 # React Verify
 
+**Stage 7 of 11** of the react-dev pipeline — after `react-implement`, then `react-analyze`. `react-dev status` shows where every feature stands.
+
 Executes the gates. This skill exists because a prose self-review is the
 weakest possible check: the model that wrote the bug is asked to notice it, from
 memory, without running anything.
@@ -83,3 +85,9 @@ memory, without running anything.
 ```
 
 End with a one-line verdict: ready for review, or blocked on X.
+
+## Next
+
+> **Stage 7 of 11 complete.** Gate table above; verdict: ready for review | blocked on X.
+> **Do next:** `react-analyze` — the read-only drift check against the spec.
+> **Any gate red?** Fix it and re-run `react-verify`. Do not continue on red.

@@ -235,19 +235,75 @@ def test_init_stamps_a_template_fingerprint(made: Path):
     assert len(manifest["templateFingerprint"]) == 16
 
 
-def test_doctor_flags_a_stale_template_fingerprint(made: Path):
+def test_doctor_separates_template_drift_from_your_own_edits(made: Path):
+    """The point of per-file hashes: a file you customised differs forever, so
+    warning about it every run is noise. Only an UNTOUCHED file that the template
+    has moved past is real drift."""
+    roots = (REPO_ROOT / "templates" / "react", REPO_ROOT / "templates" / "shared")
+
+    # Force the whole-tree fingerprint stale so the drift branch is reached.
     manifest = json.loads((made / MANIFEST).read_text(encoding="utf-8"))
     manifest["templateFingerprint"] = "0" * 16
     (made / MANIFEST).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-    template_root = REPO_ROOT / "templates" / "react"
-    checks = {
-        f.check: f
-        for f in diagnose(made, cli_version=__version__, template_root=template_root)
-    }
+    # A file the user edited: differs from the template AND from the stamp.
+    (made / "vite.config.ts").write_text("// mine\n", encoding="utf-8")
 
-    assert checks["template fingerprint"].level == "warn"
-    assert "0000" in checks["template fingerprint"].detail
+    checks = {f.check: f for f in diagnose(made, cli_version=__version__, template_roots=roots)}
+
+    assert checks["template drift"].level == "ok", (
+        "a customised file was reported as drift: " + checks["template drift"].detail
+    )
+    assert "customised by you" in checks["template drift"].detail
+
+
+def test_doctor_reports_a_file_that_is_genuinely_behind_the_template(made: Path):
+    roots = (REPO_ROOT / "templates" / "react", REPO_ROOT / "templates" / "shared")
+
+    manifest = json.loads((made / MANIFEST).read_text(encoding="utf-8"))
+    manifest["templateFingerprint"] = "0" * 16
+    # Pretend the project was shipped an older vite.config whose hash we record,
+    # and that the project still has exactly that -- untouched but outdated.
+    import hashlib
+
+    stale = "// an older template version\n"
+    (made / "vite.config.ts").write_text(stale, encoding="utf-8")
+    manifest.setdefault("fileHashes", {})["vite.config.ts"] = hashlib.sha256(
+        stale.encode()
+    ).hexdigest()[:12]
+    (made / MANIFEST).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    checks = {f.check: f for f in diagnose(made, cli_version=__version__, template_roots=roots)}
+
+    assert checks["template drift"].level == "warn"
+    assert "vite.config.ts" in checks["template drift"].detail
+
+
+def test_sync_updates_untouched_files_but_never_your_edits(made: Path, monkeypatch):
+    """Regression for the two bugs that broke a real project: --force-template
+    discarded a customised Button and a public-layout router."""
+    import hashlib
+
+    monkeypatch.chdir(made)
+    manifest = json.loads((made / MANIFEST).read_text(encoding="utf-8"))
+
+    mine = made / "src" / "components" / "atoms" / "button.tsx"
+    mine.write_text("// my own button\n", encoding="utf-8")
+
+    untouched = made / "vite.config.ts"
+    stale = "// an older template version\n"
+    untouched.write_text(stale, encoding="utf-8")
+    manifest["fileHashes"]["vite.config.ts"] = hashlib.sha256(stale.encode()).hexdigest()[:12]
+    (made / MANIFEST).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    result = runner.invoke(app, ["sync", str(made), "--with-template"])
+    assert result.exit_code == 0, result.output
+
+    # the untouched-but-outdated file was brought up to date...
+    assert untouched.read_text(encoding="utf-8") != stale
+    # ...and the edit survived, without needing --force-template
+    assert "my own button" in mine.read_text(encoding="utf-8")
+    assert "are yours" in result.output
 
 
 def test_sync_with_template_adds_missing_files_without_overwriting(made: Path, monkeypatch):
@@ -328,3 +384,423 @@ def test_force_template_still_never_touches_user_owned_files(made: Path, monkeyp
     runner.invoke(app, ["sync", str(made), "--force-template"])
 
     assert (made / "AGENTS.md").read_text(encoding="utf-8") == mine
+
+
+def test_doctor_flags_missing_source_injection(made: Path):
+    """Without it the feedback toolbar silently loses file:line."""
+    config = made / "vite.config.ts"
+    config.write_text(
+        config.read_text(encoding="utf-8").replace("devtools(", "disabled_devtools("),
+        encoding="utf-8",
+    )
+
+    checks = {f.check: f for f in diagnose(made, cli_version=__version__)}
+
+    assert checks["source injection"].level == "warn"
+    assert "file:line" in checks["source injection"].detail
+
+
+def test_doctor_requires_the_feedback_toolbar(made: Path):
+    (made / "src" / "dev" / "feedback-toolbar.tsx").unlink()
+
+    checks = {f.check: f for f in diagnose(made, cli_version=__version__)}
+
+    assert checks["src/dev/feedback-toolbar.tsx"].level == "error"
+
+
+def test_sync_merges_package_json_and_keeps_user_dependencies(made: Path, monkeypatch):
+    """Regression: a force-sync once dropped lucide-react and broke a feature."""
+    monkeypatch.chdir(made)
+
+    pkg_path = made / "package.json"
+    pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
+    pkg["dependencies"]["lucide-react"] = "^1.49.0"       # the user installed this
+    pkg["scripts"]["my-script"] = "echo mine"             # and added this
+    del pkg["scripts"]["verify"]                          # and lost a gate somehow
+    pkg_path.write_text(json.dumps(pkg, indent=2), encoding="utf-8")
+
+    result = runner.invoke(app, ["sync", str(made), "--force-template"])
+    assert result.exit_code == 0, result.output
+
+    after = json.loads(pkg_path.read_text(encoding="utf-8"))
+    # the user's dependency survived
+    assert after["dependencies"]["lucide-react"] == "^1.49.0"
+    # their script survived
+    assert after["scripts"]["my-script"] == "echo mine"
+    # and the missing gate was restored by the template
+    assert "verify" in after["scripts"]
+
+
+def test_sync_never_clobbers_user_feature_code(made: Path, monkeypatch):
+    monkeypatch.chdir(made)
+    feature = made / "src" / "features" / "landing" / "components"
+    feature.mkdir(parents=True)
+    mine = feature / "pillar-grid.tsx"
+    mine.write_text("export const PillarGrid = () => null;\n", encoding="utf-8")
+
+    runner.invoke(app, ["sync", str(made), "--force-template"])
+
+    assert mine.read_text(encoding="utf-8") == "export const PillarGrid = () => null;\n"
+
+
+def test_init_ships_the_inbox_notification_hook(made: Path):
+    """Claude Code learns about new feedback without being asked."""
+    settings = made / ".claude" / "settings.json"
+    assert settings.is_file(), "no .claude/settings.json shipped"
+
+    config = json.loads(settings.read_text(encoding="utf-8"))
+    hooks = config["hooks"]["UserPromptSubmit"][0]["hooks"]
+    command = next(h["command"] for h in hooks if h["type"] == "command")
+
+    assert ".ai/inbox" in command
+    assert "UserPromptSubmit" in command, "must name its own event in the output JSON"
+
+
+def test_the_inbox_hook_is_silent_when_the_inbox_is_empty(made: Path):
+    """It runs on every prompt, so an empty inbox must cost nothing."""
+    import subprocess
+
+    command = json.loads((made / ".claude" / "settings.json").read_text(encoding="utf-8"))[
+        "hooks"
+    ]["UserPromptSubmit"][0]["hooks"][0]["command"]
+
+    empty = subprocess.run(
+        ["sh", "-c", command], cwd=made, capture_output=True, text=True, timeout=20
+    )
+    assert empty.returncode == 0
+    assert empty.stdout.strip() == "", f"hook spoke with an empty inbox: {empty.stdout!r}"
+
+    # ...and reports a real entry as valid JSON naming the count.
+    (made / ".ai" / "inbox").mkdir(parents=True, exist_ok=True)
+    (made / ".ai" / "inbox" / "entry.json").write_text('{"comment": "x"}', encoding="utf-8")
+
+    full = subprocess.run(
+        ["sh", "-c", command], cwd=made, capture_output=True, text=True, timeout=20
+    )
+    payload = json.loads(full.stdout)
+    assert payload["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
+    assert "1 unread" in payload["hookSpecificOutput"]["additionalContext"]
+
+
+def test_sync_with_template_also_restores_shared_scaffolding(made: Path, monkeypatch):
+    """Regression: sync walked only templates/<type>, so anything added to
+    templates/shared (CI, .mcp.json, .ai/, .claude/settings.json) could never
+    reach an existing project."""
+    monkeypatch.chdir(made)
+
+    settings = made / ".claude" / "settings.json"
+    workflow = made / ".github" / "workflows" / "verify.yml"
+    settings.unlink()
+    workflow.unlink()
+
+    result = runner.invoke(app, ["sync", str(made), "--with-template"])
+    assert result.exit_code == 0, result.output
+
+    assert settings.is_file(), "shared .claude/settings.json was not restored"
+    assert workflow.is_file(), "shared CI workflow was not restored"
+
+
+def test_sync_does_not_resurrect_deliberately_removed_files(made: Path, monkeypatch):
+    """A project that outgrows template scaffolding should stay rid of it."""
+    monkeypatch.chdir(made)
+
+    placeholder = made / "src" / "app" / "pages" / "home.tsx"
+    assert placeholder.is_file()
+    placeholder.unlink()
+
+    manifest = json.loads((made / MANIFEST).read_text(encoding="utf-8"))
+    manifest["userRemoved"] = ["src/app/pages/home.tsx"]
+    (made / MANIFEST).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    runner.invoke(app, ["sync", str(made), "--with-template"])
+
+    assert not placeholder.exists(), "sync resurrected a file the project removed"
+    # and the list survives the sync, so it keeps working next time
+    after = json.loads((made / MANIFEST).read_text(encoding="utf-8"))
+    assert "src/app/pages/home.tsx" in after["userRemoved"]
+
+
+# --- the pipeline -----------------------------------------------------------
+# These exist because the pipeline's value is that it reads as one sequence.
+# A skill that forgets its stage line, or a stage missing from WORKFLOW_ORDER,
+# breaks the handoff silently -- the agent just stops at the end of a skill.
+
+PIPELINE_SKILLS = [
+    "react-constitution", "react-roadmap", "react-feature", "react-spec",
+    "react-clarify", "react-implement", "react-verify", "react-analyze",
+    "react-review", "react-ship", "react-merge",
+]
+
+
+def test_every_skill_declares_its_place_in_the_pipeline():
+    for d in sorted((REPO_ROOT / "skills").iterdir()):
+        body = (d / "SKILL.md").read_text()
+        assert "**Stage " in body or "**Toolbox skill**" in body, (
+            f"{d.name} declares neither a stage nor toolbox status"
+        )
+
+
+def test_pipeline_stages_are_numbered_1_to_11_without_gaps():
+    import re
+    seen = {}
+    for name in PIPELINE_SKILLS:
+        body = (REPO_ROOT / "skills" / name / "SKILL.md").read_text()
+        m = re.search(r"\*\*Stage (\d+) of 11\*\*", body)
+        assert m, f"{name} has no 'Stage N of 11' banner"
+        seen[int(m.group(1))] = name
+    assert sorted(seen) == list(range(1, 12)), f"gaps or duplicates: {sorted(seen)}"
+
+
+def test_workflow_order_lists_every_pipeline_stage_in_order():
+    from react_dev import WORKFLOW_ORDER
+    positions = [WORKFLOW_ORDER.index(n) for n in PIPELINE_SKILLS]
+    assert positions == sorted(positions), "WORKFLOW_ORDER disagrees with the stage numbers"
+
+
+def test_pipeline_status_reports_planned_for_a_roadmapped_feature(tmp_path):
+    from react_dev.project import pipeline_status
+    (tmp_path / "specs" / "roadmap").mkdir(parents=True)
+    (tmp_path / "specs" / "ROADMAP.md").write_text(
+        "| 1 | landing | public | — |\n| 2 | dog-profile | app | — |\n"
+    )
+    (tmp_path / "specs" / "roadmap" / "001-landing.md").write_text("# Landing\n")
+    (tmp_path / "specs" / "roadmap" / "002-dog-profile.md").write_text("# Dog profile\n")
+
+    statuses = pipeline_status(tmp_path)
+    assert [s.slug for s in statuses] == ["landing", "dog-profile"]
+    assert all(s.stage == "planned" for s in statuses)
+    assert statuses[0].next_command == "react-feature 1"
+
+
+def test_pipeline_status_advances_as_the_spec_folder_fills(tmp_path):
+    from react_dev.project import pipeline_status
+    (tmp_path / "specs" / "roadmap").mkdir(parents=True)
+    (tmp_path / "specs" / "ROADMAP.md").write_text("| 1 | landing | public | — |\n")
+    (tmp_path / "specs" / "roadmap" / "001-landing.md").write_text("# Landing\n")
+
+    work = tmp_path / "specs" / "001-landing"
+    work.mkdir()
+    assert pipeline_status(tmp_path)[0].stage == "started"
+
+    (work / "spec.md").write_text("# Spec\n\n[NEEDS CLARIFICATION: which auth?]\n")
+    assert pipeline_status(tmp_path)[0].stage == "specced"
+
+    (work / "spec.md").write_text("# Spec\n\nAll decided.\n")
+    (work / "tasks.md").write_text("- [ ] build it\n")
+    assert pipeline_status(tmp_path)[0].stage == "clarified"
+
+    (work / "tasks.md").write_text("- [x] build it\n")
+    assert pipeline_status(tmp_path)[0].stage == "implemented"
+
+
+def test_pipeline_status_never_stores_stage_in_the_manifest(tmp_path):
+    """Derived state only -- a stored stage is wrong the moment anyone edits by hand."""
+    from react_dev.project import pipeline_status, MANIFEST
+    (tmp_path / "specs" / "roadmap").mkdir(parents=True)
+    (tmp_path / "specs" / "ROADMAP.md").write_text("| 1 | landing | public | — |\n")
+    (tmp_path / "specs" / "roadmap" / "001-landing.md").write_text("# Landing\n")
+    pipeline_status(tmp_path)
+    manifest = tmp_path / MANIFEST
+    if manifest.is_file():
+        assert "stage" not in manifest.read_text()
+
+
+def test_status_command_runs_on_a_project_with_a_roadmap(tmp_path):
+    (tmp_path / "specs" / "roadmap").mkdir(parents=True)
+    (tmp_path / "specs" / "ROADMAP.md").write_text(
+        "| P1 | **OpenAPI contract**: not agreed | blocks all | open |\n"
+        "| 1 | landing | public | — |\n"
+    )
+    (tmp_path / "specs" / "roadmap" / "001-landing.md").write_text("# Landing\n")
+
+    result = runner.invoke(app, ["status", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "landing" in result.output
+    assert "Prerequisites" in result.output
+    assert "OpenAPI contract" in result.output
+
+
+def test_shared_docs_are_formatted_with_the_template_prettier_config():
+    """Shared docs must satisfy the GENERATED project's prettier, not the repo's.
+
+    This repo has no prettier config, so `npx prettier --write templates/shared/...`
+    silently uses prettier's defaults (printWidth 80) while the generated project
+    checks with the template's printWidth 100 -- prettier resolves config from the
+    FILE's location, not the cwd. Markdown table padding differs between the two,
+    so a fresh `npm run verify` fails on a doc nobody edited. Hit twice; now caught
+    here instead of in a generated project.
+    """
+    import shutil as _shutil
+    import subprocess
+
+    template = REPO_ROOT / "templates" / "react"
+    if not (template / "node_modules" / ".bin" / "prettier").exists():
+        pytest.skip("template deps not installed")
+    assert _shutil.which("npx"), "npx missing"
+
+    shared = REPO_ROOT / "templates" / "shared"
+    docs = [str(p.relative_to(template.parent.parent)) for p in shared.rglob("*.md")]
+    assert docs, "no shared docs found -- test would pass vacuously"
+
+    proc = subprocess.run(
+        [str(template / "node_modules" / ".bin" / "prettier"),
+         "--config", str(template / ".prettierrc"), "--check", *docs],
+        cwd=REPO_ROOT, capture_output=True, text=True, timeout=180,
+    )
+    assert proc.returncode == 0, (
+        "shared docs are not formatted for the generated project.\n"
+        f"fix: cd templates/react && npx prettier --config .prettierrc "
+        f"--write '../shared/**/*.md'\n{proc.stdout}{proc.stderr}"
+    )
+
+
+def test_template_constitution_stays_under_codex_doc_limit():
+    """Codex stops reading AGENTS.md at project_doc_max_bytes (32 KiB default).
+
+    react-constitution targets 8 KiB, and react-feedback APPENDS learned rules to
+    this file over the project's life -- so the shipped template must leave room.
+    8 KiB is the self-imposed target; Codex's own default is 32 KiB.
+    """
+    size = (REPO_ROOT / "templates" / "react" / "AGENTS.md").stat().st_size
+    assert size < 8_192, (
+        f"template AGENTS.md is {size} B, over the 8 KiB target. Move detail into a "
+        "referenced doc rather than growing the constitution."
+    )
+
+
+def test_every_skill_ends_with_a_next_block():
+    """The user's last instruction must always be what to run next.
+
+    Before this, 5 of 15 skills ended on a '## Report' section with no handoff, so
+    the run just stopped and the user had to work out the next command themselves.
+    """
+    for d in sorted((REPO_ROOT / "skills").iterdir()):
+        body = (d / "SKILL.md").read_text()
+        headings = [ln for ln in body.splitlines() if ln.startswith("## ")]
+        assert headings, f"{d.name} has no sections"
+        assert headings[-1] == "## Next", (
+            f"{d.name} ends on '{headings[-1]}', not '## Next' -- the reply would "
+            "stop without telling the user what to run"
+        )
+        tail = body.split("## Next", 1)[1]
+        assert "**Do next:**" in tail, f"{d.name} Next block names no command"
+        # One command, not a menu: the block may offer at most one alternative.
+        assert tail.count("**Do next:**") == 1, f"{d.name} has more than one Do next"
+
+
+def test_next_blocks_name_a_real_skill_or_command():
+    """A handoff pointing at a skill that does not exist is worse than none."""
+    import re
+    names = {d.name for d in (REPO_ROOT / "skills").iterdir() if d.is_dir()} | {
+        "react-dev", "code-review"}
+    for d in sorted((REPO_ROOT / "skills").iterdir()):
+        tail = (d / "SKILL.md").read_text().split("## Next", 1)[1]
+        for cited in re.findall(r"`[/$]?(react[-:][a-z-]+|code-review)", tail):
+            base = cited.replace("react:", "react-")
+            assert base in names, (
+                f"{d.name} Next block cites `{base}`, which is not a skill or command"
+            )
+
+
+def test_generator_output_is_prettier_clean_for_a_long_feature_name(tmp_path):
+    """`gen -- feature <name>` must pass format:check whatever the name is.
+
+    Templates are hand-written strings, so whether a line fits printWidth depends
+    on the name substituted in. `feature orders` stayed under it; `feature
+    invoices` produced a 105-character signature in the mock factory and
+    `npm run verify` failed on format:check immediately after generating. The
+    generator now formats what it writes; this proves it, with a name long enough
+    to overflow.
+    """
+    import shutil
+    import subprocess
+
+    template = REPO_ROOT / "templates" / "react"
+    deps = template / "node_modules"
+    if not (deps / ".bin" / "prettier").exists():
+        pytest.skip("template deps not installed")
+
+    project = tmp_path / "app"
+    shutil.copytree(template, project, ignore=shutil.ignore_patterns(
+        "node_modules", "test-results", "playwright-report", "dist", ".react-dev-backup"))
+    (project / "node_modules").symlink_to(deps, target_is_directory=True)
+
+    gen = subprocess.run(
+        ["node", "tools/gen/index.mjs", "feature", "notifications"],
+        cwd=project, capture_output=True, text=True, timeout=180,
+    )
+    assert gen.returncode == 0, f"{gen.stdout}\n{gen.stderr}"
+    assert "notifications" in gen.stdout
+
+    check = subprocess.run(
+        [str(deps / ".bin" / "prettier"), "--check", "."],
+        cwd=project, capture_output=True, text=True, timeout=240,
+    )
+    assert check.returncode == 0, (
+        "generated code is not prettier-clean, so `npm run verify` would fail "
+        f"right after generating a feature:\n{check.stdout}{check.stderr}"
+    )
+
+
+def test_duplicate_components_check_is_a_required_capability():
+    """react-analyze runs `npm run components:check`, so doctor must demand it.
+
+    The repo rule: any template surface a skill depends on goes in REQUIRED_*,
+    otherwise doctor reports a drifted project as healthy while the agent runs a
+    command it does not have.
+    """
+    from react_dev.project import REQUIRED_PATHS, REQUIRED_SCRIPTS
+
+    assert any(name == "components:check" for name, _ in REQUIRED_SCRIPTS)
+    assert any(p == "scripts/duplicate-components-check.mjs" for p, _ in REQUIRED_PATHS)
+
+    template = REPO_ROOT / "templates" / "react"
+    assert (template / "scripts" / "duplicate-components-check.mjs").is_file()
+    pkg = json.loads((template / "package.json").read_text())
+    assert pkg["scripts"]["components:check"] == "node scripts/duplicate-components-check.mjs"
+    assert "components:check" in pkg["scripts"]["verify"], "not wired into the gate"
+
+
+def test_duplicate_components_check_fails_on_a_copy_and_passes_on_an_opt_out(tmp_path):
+    """Behaviour, not just presence: a vacuous gate is worse than none."""
+    import subprocess
+
+    script = REPO_ROOT / "templates" / "react" / "scripts" / "duplicate-components-check.mjs"
+    project = tmp_path / "app"
+    for feature in ("orders", "invoices"):
+        (project / "src" / "features" / feature / "components").mkdir(parents=True)
+    (project / "scripts").mkdir()
+
+    body = "export function StatusBadge() {\n  return null;\n}\n"
+    orders = project / "src/features/orders/components/status-badge.tsx"
+    invoices = project / "src/features/invoices/components/status-badge.tsx"
+
+    def run():
+        return subprocess.run(["node", str(script)], cwd=project,
+                              capture_output=True, text=True, timeout=60)
+
+    # One copy only: clean.
+    orders.write_text(body)
+    assert run().returncode == 0
+
+    # Two copies: fails, and names the promote command.
+    invoices.write_text(body)
+    failed = run()
+    assert failed.returncode == 1, failed.stdout
+    assert "status-badge.tsx" in failed.stderr
+    assert "promote" in failed.stderr
+
+    # Opt-out on one copy only: still fails -- a half opt-out is not an opt-out.
+    invoices.write_text("// duplicate-ok: different status vocabulary\n" + body)
+    half = run()
+    assert half.returncode == 1
+    assert "all of them must" in half.stderr
+
+    # Opt-out on both: passes.
+    orders.write_text("// duplicate-ok: different status vocabulary\n" + body)
+    assert run().returncode == 0
+
+    # Tests and stories share the component's name by design, never a finding.
+    (project / "src/features/orders/components/status-badge.test.tsx").write_text(body)
+    (project / "src/features/invoices/components/status-badge.test.tsx").write_text(body)
+    assert run().returncode == 0

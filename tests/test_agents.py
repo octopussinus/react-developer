@@ -168,3 +168,59 @@ def test_emit_is_idempotent(project: Path):
     assert first == second
     shims = list((project / ".gemini" / "commands" / "react").glob("*.toml"))
     assert len(shims) == len(_skill_names())
+
+
+def test_emit_prunes_a_skill_that_no_longer_exists(project: Path):
+    """Removing a skill must remove its derived artifacts.
+
+    Found by deleting `react-prototype`: emit only ever added, so Claude kept a
+    dangling `.claude/skills/react-prototype` symlink and Gemini kept a
+    `prototype.toml` shim whose `@{...}` body pointed at nothing. Both agents
+    went on offering a command that could not work.
+    """
+    names = _skill_names()
+    for key in ("claude", "gemini"):
+        emit_for_agent(project, AGENTS[key], names)
+
+    link = project / ".claude" / "skills" / names[0]
+    shim = project / ".gemini" / "commands" / "react" / f"{names[0].removeprefix('react-')}.toml"
+    assert link.exists() and shim.is_file()
+
+    remaining = names[1:]
+    for key in ("claude", "gemini"):
+        emit_for_agent(project, AGENTS[key], remaining)
+
+    assert not link.exists() and not link.is_symlink(), "stale skill link survived"
+    assert not shim.exists(), "stale Gemini shim survived"
+    # Everything else is untouched.
+    assert len(list((project / ".claude" / "skills").iterdir())) == len(remaining)
+    assert len(list((project / ".gemini" / "commands" / "react").glob("*.toml"))) == len(remaining)
+
+
+def test_emit_reports_what_it_pruned(project: Path):
+    names = _skill_names()
+    emit_for_agent(project, AGENTS["claude"], names)
+    actions = emit_for_agent(project, AGENTS["claude"], names[1:])
+    assert any("removed (no longer a skill)" in a for a in actions), actions
+
+
+def test_react_prototype_is_gone(project: Path):
+    """The prototype stage was folded into react-spec; nothing may reference it."""
+    assert "react-prototype" not in _skill_names()
+    repo = Path(__file__).resolve().parent.parent
+    # MIGRATION.md and the audit are dated records of earlier versions; they are
+    # allowed to name a stage that existed then. Live guidance is not.
+    historical = {"MIGRATION.md", "ENTERPRISE-READINESS-AUDIT.md"}
+    live = [
+        f
+        for pattern in ("skills/*/SKILL.md", "*.md", "templates/shared/*.md",
+                        "templates/shared/**/*.md", "templates/react/AGENTS.md")
+        for f in repo.glob(pattern)
+        if f.name not in historical
+    ]
+    assert live, "glob matched nothing -- the test would pass vacuously"
+    for f in live:
+        body = f.read_text()
+        if f.name == "design-input.md":
+            continue  # explains what replaced it
+        assert "react-prototype" not in body, f"{f} still references it"
