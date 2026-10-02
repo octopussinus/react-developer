@@ -1018,3 +1018,32 @@ def test_react_publish_skill_refuses_single_project_components():
     assert "NEVER publish a component used by only one project." in body
     assert "@/features" in body, "must check the component imports no feature"
     assert "npm run gen --" in body, "must call the generator, not hand-edit registry.json"
+
+
+def test_storybook_config_is_typechecked():
+    """`.storybook/*.ts` must be in a tsconfig, or a bad import only fails in CI.
+
+    `preview.ts` imported `initialize` from msw-storybook-addon after v3 removed
+    it. Every local gate passed -- nothing typechecked that directory -- and
+    `build-storybook` failed on a push. Two reasons it was invisible: the
+    `.storybook/tsconfig.json` was referenced by nothing, and its `include` was
+    `["."]`, which matches nothing because TypeScript skips dot-directories when
+    expanding globs. Hence an explicit `files` list.
+    """
+    template = REPO_ROOT / "templates" / "react"
+    config = json.loads(
+        re.sub(r"^\s*//.*$", "", (template / ".storybook/tsconfig.json").read_text(), flags=re.M)
+    )
+    files = config.get("files", [])
+    assert "preview.ts" in files and "main.ts" in files, (
+        f"`files` must list the config files explicitly; got {files!r}"
+    )
+    assert "include" not in config, (
+        "an `include` glob silently matches nothing inside a dot-directory"
+    )
+
+    pkg = json.loads((template / "package.json").read_text())
+    assert ".storybook/tsconfig.json" in pkg["scripts"]["typecheck"], (
+        "typecheck does not cover .storybook, so its imports are unchecked"
+    )
+    assert "npm run typecheck" in pkg["scripts"]["verify"]

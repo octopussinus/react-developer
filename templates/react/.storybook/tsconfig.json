@@ -1,7 +1,8 @@
 {
+  "_comment": "Checked by its own `npm run typecheck` step, not via project references: tsconfig.app.json is noEmit, so it cannot be a composite reference (TS6305). It is checked at all because it was NOT -- a preview.ts importing a symbol the addon no longer exports typechecked clean, and the failure surfaced only in `build-storybook`, in CI. `files` is explicit because TypeScript skips dot-directories when expanding an `include` glob, so `include: ['.']` silently matched nothing.",
   "extends": "../tsconfig.app.json",
   "compilerOptions": {
     "types": ["node", "vite/client"]
   },
-  "include": [".", "../src/**/*.stories.tsx"]
+  "files": ["main.ts", "preview.ts"]
 }
