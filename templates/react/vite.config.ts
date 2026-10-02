@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { devtools } from '@tanstack/devtools-vite';
 // @ts-expect-error -- plain .mjs dev plugin, no types needed
 import { feedbackPlugin } from './tools/feedback-plugin.mjs';
+// @ts-expect-error -- plain .mjs dev plugin, no types needed
+import { componentMapPlugin } from './tools/component-map-plugin.mjs';
 
 export default defineConfig({
   plugins: [
@@ -23,6 +25,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     feedbackPlugin(),
+    componentMapPlugin(),
   ],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

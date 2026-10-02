@@ -25,6 +25,8 @@
  * The component NAME still comes from the fiber: `type.name` was not removed.
  */
 
+import { mountComponentOverlay } from './component-overlay';
+
 interface Fiber {
   return: Fiber | null;
   type: unknown;
@@ -156,6 +158,23 @@ export function mountFeedbackToolbar(): void {
       .intents button:hover, .intents button:focus-visible { background: #2563eb; }
       .panel .cancel { margin-top: 10px; background: transparent; color: #9ca3af;
                        padding: 4px 0; }
+      .overlay { position: fixed; inset: 0; pointer-events: none; z-index: 2147483645; }
+      .mark { position: fixed; border: 2px solid; border-radius: 4px; }
+      .tag { position: absolute; top: -9px; left: -2px; padding: 1px 5px;
+             border-radius: 4px; color: #fff; white-space: nowrap;
+             font: 600 10px/1.4 system-ui, sans-serif; }
+      .legend { position: fixed; bottom: 60px; right: 16px; z-index: 2147483647;
+                width: 268px; padding: 12px; border-radius: 12px; background: #111827;
+                color: #f9fafb; font: 400 12px system-ui, sans-serif;
+                box-shadow: 0 10px 30px rgb(0 0 0 / .4); }
+      .legend h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; }
+      .legend .row { display: flex; align-items: center; gap: 8px; width: 100%;
+                     padding: 5px 6px; background: transparent; color: inherit;
+                     font: inherit; border-radius: 6px; }
+      .legend .row:hover { background: #1f2937; }
+      .legend .row[data-off="true"] { opacity: .4; text-decoration: line-through; }
+      .legend .row i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+      .legend p { margin: 8px 0 0; font-size: 10px; line-height: 1.45; color: #9ca3af; }
     </style>
     <div class="bar"><button type="button" id="pick">Feedback</button></div>
     <div class="ring" id="ring" hidden></div>
@@ -261,6 +280,8 @@ export function mountFeedbackToolbar(): void {
     pickButton.textContent = 'Sent ✓';
     window.setTimeout(() => setPicking(false), 1200);
   }
+
+  mountComponentOverlay(shadow.querySelector('.bar') as HTMLElement, shadow);
 
   pickButton.addEventListener('click', () => {
     closePanel();

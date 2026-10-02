@@ -845,3 +845,41 @@ def test_shipped_guide_only_references_docs_a_project_actually_has():
         assert any((root / doc).exists() for root in roots), (
             f"GUIDE.md's Docs table cites `{doc}`, which no template root ships"
         )
+
+
+def test_dev_overlay_surface_is_a_required_capability():
+    """The Dev overlay spans a vite plugin and a client module; doctor checks both.
+
+    Without the plugin the button still renders and the map comes back empty,
+    which reads as "nothing was reused" rather than "nothing was measured" --
+    the exact silent-wrong-answer those invariants exist to catch.
+    """
+    from react_dev.project import REQUIRED_PATHS
+
+    paths = {p for p, _ in REQUIRED_PATHS}
+    assert "tools/component-map-plugin.mjs" in paths
+    assert "src/dev/component-overlay.tsx" in paths
+
+    template = REPO_ROOT / "templates" / "react"
+    config = (template / "vite.config.ts").read_text()
+    assert "component-map-plugin" in config
+    assert "componentMapPlugin()" in config
+
+
+def test_doctor_warns_when_the_component_map_plugin_is_unwired(tmp_path):
+    import shutil
+
+    from react_dev.project import diagnose
+
+    template = REPO_ROOT / "templates" / "react"
+    project = tmp_path / "app"
+    shutil.copytree(template, project, ignore=shutil.ignore_patterns(
+        "node_modules", "dist", "test-results", "playwright-report"))
+
+    wired = [d for d in diagnose(project) if d.check == "component map"]
+    assert wired and wired[0].level == "ok", "a pristine template should report it wired"
+
+    config = project / "vite.config.ts"
+    config.write_text(config.read_text().replace("componentMapPlugin()", "/* removed */"))
+    unwired = [d for d in diagnose(project) if d.check == "component map"]
+    assert unwired and unwired[0].level == "warn", "removing the call must be detected"

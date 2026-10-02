@@ -375,6 +375,25 @@ That records exactly which file and which line drew that thing. Next time you
 type anything to the assistant, it already knows what you pointed at and what you
 asked for — so you never have to describe where something is.
 
+## Seeing what was reused and what is new
+
+Next to **Feedback** there is a **Dev** button. Click it and every piece of the
+page gets a coloured outline:
+
+| Colour     | What it means                                                                |
+| ---------- | ---------------------------------------------------------------------------- |
+| **Green**  | Reused — this already existed, the assistant did not rebuild it              |
+| **Purple** | New, but put in the shared pile — only right if another page will use it too |
+| **Blue**   | Written specially for the feature you are working on                         |
+| **Grey**   | The frame around the page: menu, layout                                      |
+
+This is the quickest way to answer "did it reuse my stuff, or quietly build a
+second version of the same thing?" Lots of blue where you expected green usually
+means something was rebuilt that already existed.
+
+The panel in the corner counts each group; click a row to hide it. Press **Esc**
+or click **Dev** again to turn it off.
+
 **About "I want this elsewhere too":** the assistant will ask you _which page_
 needs it as well. That is on purpose. Making something shared before two pages
 really use it tends to create a component that fits neither — so "just in case"

@@ -383,6 +383,26 @@ To zapisuje dokładnie, który plik i która linijka narysowały ten element. Pr
 następnej wiadomości do asystenta on już wie, co wskazałeś i o co poprosiłeś —
 więc nigdy nie musisz tłumaczyć, gdzie coś jest.
 
+## Podgląd: co zostało użyte ponownie, a co jest nowe
+
+Obok **Feedback** jest przycisk **Dev**. Kliknij go, a każdy element strony
+dostanie kolorową ramkę:
+
+| Kolor         | Co znaczy                                                                                 |
+| ------------- | ----------------------------------------------------------------------------------------- |
+| **Zielony**   | Użyte ponownie — to już istniało, asystent nie budował tego od nowa                       |
+| **Fioletowy** | Nowe, ale wrzucone do wspólnej puli — słuszne tylko wtedy, gdy użyje tego też inna strona |
+| **Niebieski** | Napisane specjalnie dla funkcji, nad którą pracujesz                                      |
+| **Szary**     | Rama wokół strony: menu, układ                                                            |
+
+To najszybszy sposób, żeby odpowiedzieć na pytanie „czy asystent użył moich
+rzeczy, czy po cichu zbudował drugą wersję tego samego?”. Dużo niebieskiego tam,
+gdzie spodziewałeś się zielonego, zwykle znaczy, że coś zostało zbudowane od
+nowa, choć już istniało.
+
+Panel w rogu liczy każdą grupę; kliknij wiersz, żeby ją ukryć. Wciśnij **Esc**
+albo kliknij **Dev** ponownie, żeby wyłączyć.
+
 **O przycisku „I want this elsewhere too":** asystent dopyta, _która jeszcze
 strona_ tego potrzebuje. I to celowo. Uwspólnianie czegoś, zanim dwie strony
 naprawdę tego używają, zwykle tworzy komponent, który nie pasuje do żadnej z nich

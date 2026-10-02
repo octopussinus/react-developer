@@ -37,6 +37,33 @@ then pick **what you want** — optionally with a note — and an entry lands he
 }
 ```
 
+## The `Dev` button — reused vs written for this feature
+
+Next to **Feedback**. It outlines every component on the page and colours it by
+where it came from:
+
+| Colour     | Means                                                                                  |
+| ---------- | -------------------------------------------------------------------------------------- |
+| Green      | **Reused from the design system** — a shared component that existed before this branch |
+| Purple     | **New, placed as shared** — written on this branch but put in a shared layer           |
+| Blue       | **Written for this feature** — new on this branch, inside the feature                  |
+| Light blue | Existing feature code, predating this branch                                           |
+| Grey       | App shell — layout and routing                                                         |
+
+"New" is not inferred from the path. The dev server asks git which files this
+branch **added** (`git diff --diff-filter=A <base>...HEAD`, plus anything
+untracked), because the pipeline gives every feature its own branch. A path
+cannot tell you that: a brand-new component dropped into `components/atoms/`
+would otherwise look like design-system reuse, which is the one mistake this is
+worth catching.
+
+Purple is the colour to look at. Shared-layer code written on this branch is
+only correct if a second feature genuinely needs it — see `components:check` and
+the rule of three.
+
+With no git repo, or on the base branch itself, it says so and shows location
+only rather than claiming everything is pre-existing.
+
 The `intent` matters as much as the location: it is the difference between the
 agent guessing what a sentence meant and knowing which command to run. `comment`
 is optional and may be `null` — the intent alone is actionable.
