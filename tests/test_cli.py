@@ -1570,3 +1570,34 @@ def test_every_subagent_pins_model_and_effort():
         fields = dict(re.findall(r"^(\w+): (.+)$", front, re.M))
         assert fields.get("model") == "sonnet", f"{agent.stem}: model is {fields.get('model')!r}"
         assert fields.get("effort") == "xhigh", f"{agent.stem}: effort is {fields.get('effort')!r}"
+
+
+def test_a_red_gate_gets_a_bounded_retry_budget():
+    """Three attempts, then stop -- not a loop until green.
+
+    An agent that MUST reach green takes the cheapest route, and the cheapest
+    route is always weakening the check: delete the test, disable the rule, lower
+    the threshold. The budget is what stops a failure turning into a workaround.
+    """
+    body = (REPO_ROOT / "skills" / "react-implement" / "SKILL.md").read_text()
+    assert "three attempts" in body.lower()
+    assert "stop and report" in body.lower()
+    # Re-running only the failed part hides a fix that broke something else.
+    assert "WHOLE gate" in body or "whole gate" in body.lower()
+
+    retries = REPO_ROOT / "skills" / "react-implement" / "references" / "retries.md"
+    assert retries.is_file(), "the retry rules are not documented"
+    rules = retries.read_text()
+    for forbidden in ("eslint-disable", "coverage", "eslint.config.js", "baseline",
+                      "duplicate-ok"):
+        assert forbidden in rules, f"{forbidden} must be named as never allowed"
+    # Architecture failures have real fixes; editing the config is not one.
+    assert "gen -- promote" in rules
+    assert "boundaries" in rules and "components:check" in rules
+
+
+def test_the_gate_itself_still_forbids_weakening():
+    """The budget only holds if the gate skill agrees with it."""
+    verify = (REPO_ROOT / "skills" / "react-verify" / "SKILL.md").read_text()
+    assert "no `eslint-disable`" in verify
+    assert "no lowered coverage threshold" in verify

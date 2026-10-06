@@ -85,10 +85,19 @@ you created.
 Delegate each to its subagent (`react-verify`, `react-analyze`, `react-review`)
 so their output stays out of this conversation and only the verdicts come back.
 
-**Stop the chain the moment something is red**, and say what. A failing gate is
-the signal to fix, not to carry on to the next stage and report both. The point
-of the chain is to reach `react-ship` with everything green, or to stop early
-with one clear reason.
+**A red gate gets three attempts, then you stop.** Fix only what the failure
+pointed at, re-run the WHOLE gate after each attempt, and never reach green by
+weakening a check — no deleted test, no `eslint-disable`, no edited
+`eslint.config.js`, no updated visual baseline to make a diff disappear.
+
+Architecture failures (`boundaries`, `components:check`) get the same three, and
+their fixes are specific: move the code, promote it, or import it correctly.
+Never make the rule stop firing. The table of legitimate fixes, and the table of
+things that are never one: [references/retries.md](references/retries.md).
+
+If three attempts do not clear it, **stop and report** — the gate, the real
+error, what you tried, and the one decision you need. A blocked run that names
+the trade is worth more than a green one that hid it.
 
 `react-ship` and `react-merge` are NOT part of this. They commit, push and land
 work, and nobody should discover their branch was pushed because a chain ran on.
