@@ -26,6 +26,81 @@ const startWorker = async () => {
  * Dark mode is the `.dark` class (shadcn's convention), so the toolbar toggles
  * that class rather than emulating a media query.
  */
+
+declare const __PROJECT_ROOT__: string;
+
+/**
+ * Where is this component on disk?
+ *
+ * Storybook knows the STORY file as `./src/.../badge.stories.tsx` relative to
+ * the project. The component sits next to it by convention, so stripping
+ * `.stories` gives the file you actually want to open. The absolute prefix is
+ * injected in main.ts, because a path you cannot paste into an editor does not
+ * save you the hunt.
+ */
+function sourcePaths(fileName: unknown): { relative: string; absolute: string } | null {
+  if (typeof fileName !== 'string' || fileName === '') return null;
+  const relative = fileName.replace(/^\.\//, '').replace(/\.stories\.(tsx?|jsx?)$/, '.tsx');
+  const root = typeof __PROJECT_ROOT__ === 'string' ? __PROJECT_ROOT__ : '';
+  return { relative, absolute: root ? `${root.replace(/\/$/, '')}/${relative}` : relative };
+}
+
+function pathBar(paths: { relative: string; absolute: string }): HTMLElement {
+  const bar = document.createElement('div');
+  bar.setAttribute('data-sb-source', paths.absolute);
+  Object.assign(bar.style, {
+    position: 'fixed',
+    bottom: '0',
+    left: '0',
+    right: '0',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '5px 9px',
+    background: '#111827',
+    color: '#e5e7eb',
+    font: '400 11px ui-monospace, SFMono-Regular, Menlo, monospace',
+    zIndex: '2147483647',
+  });
+
+  const text = document.createElement('span');
+  text.textContent = paths.relative;
+  text.style.flex = '1';
+  text.style.overflow = 'hidden';
+  text.style.textOverflow = 'ellipsis';
+  text.style.whiteSpace = 'nowrap';
+  text.title = paths.absolute;
+
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.textContent = 'Copy path';
+  Object.assign(copy.style, {
+    border: '0',
+    borderRadius: '5px',
+    padding: '3px 8px',
+    background: '#2563eb',
+    color: '#fff',
+    font: 'inherit',
+    cursor: 'pointer',
+  });
+  copy.addEventListener('click', () => {
+    void navigator.clipboard?.writeText(paths.absolute).then(
+      () => {
+        copy.textContent = 'Copied ✓';
+        window.setTimeout(() => (copy.textContent = 'Copy path'), 1200);
+      },
+      () => {
+        copy.textContent = 'Press ⌘C';
+      },
+    );
+  });
+
+  bar.append(text, copy);
+  return bar;
+}
+
+const SOURCE_BAR_ID = 'sb-source-bar';
+
 const preview: Preview = {
   loaders: [mswLoader(startWorker)],
   parameters: {
@@ -51,6 +126,17 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       document.documentElement.classList.toggle('dark', context.globals['theme'] === 'dark');
+
+      // Rendered outside the story's own tree so it cannot affect layout,
+      // snapshots or anything a play function queries.
+      document.getElementById(SOURCE_BAR_ID)?.remove();
+      const paths = sourcePaths((context.parameters as Record<string, unknown>)['fileName']);
+      if (paths) {
+        const bar = pathBar(paths);
+        bar.id = SOURCE_BAR_ID;
+        document.body.appendChild(bar);
+      }
+
       return Story();
     },
   ],

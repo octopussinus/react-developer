@@ -64,6 +64,24 @@ the rule of three.
 With no git repo, or on the base branch itself, it says so and shows location
 only rather than claiming everything is pre-existing.
 
+## Nothing is deleted — entries move between three folders
+
+| Folder     | Means                                                   | Who puts it there             |
+| ---------- | ------------------------------------------------------- | ----------------------------- |
+| `inbox/`   | New. Nobody has started                                 | the toolbar, when you send it |
+| `working/` | The agent has it, or has finished and is waiting on you | the agent                     |
+| `done/`    | **You** confirmed it is actually fixed                  | only you, from the toolbar    |
+
+The **List** button next to Feedback shows all of them with their status. An
+entry in `working/` carries the agent's note — what it changed and what to look
+at — above a **Yes, done / Not fixed** pair. "Not fixed" sends it back to
+`inbox/` and strips that note, so the next attempt starts clean.
+
+**The agent can never close its own feedback.** It cannot write to `done/` and it
+never reads it. That matters because the only honest test of "is it fixed" is a
+person looking at the running app: an agent that closes its own tickets closes
+the ones it got wrong too, and those are exactly the ones worth a second look.
+
 The `intent` matters as much as the location: it is the difference between the
 agent guessing what a sentence meant and knowing which command to run. `comment`
 is optional and may be `null` — the intent alone is actionable.

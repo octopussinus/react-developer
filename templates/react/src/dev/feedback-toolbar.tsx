@@ -122,6 +122,63 @@ async function send(payload: unknown): Promise<void> {
   });
 }
 
+interface Intent {
+  id: string;
+  label: string;
+  /** What the agent will actually DO. Shown behind the (i), not guessed at. */
+  explains: string;
+}
+
+const INTENTS: readonly Intent[] = [
+  {
+    id: 'fix',
+    label: 'Something is wrong with it',
+    explains:
+      'Treated as a defect. The agent reads the exact file and line, fixes it, and if the same kind of correction comes up three times it becomes a permanent project rule.',
+  },
+  {
+    id: 'reuse',
+    label: 'I want this elsewhere too',
+    explains:
+      'A request to share the component. The agent will ask WHICH other page needs it, because a second real use is what decides where it should live. "Just in case" is not enough and it will say so.',
+  },
+  {
+    id: 'style',
+    label: 'Change how it looks',
+    explains:
+      'Treated as a change to the design tokens — colours, spacing, radii — so it applies everywhere consistently. It will not patch one component with a hardcoded colour.',
+  },
+  {
+    id: 'wording',
+    label: 'Fix the wording',
+    explains:
+      'The text goes to the translation files, so English and Polish stay in step. A missing translation then fails the automatic check rather than shipping half-translated.',
+  },
+  {
+    id: 'explain',
+    label: 'Explain what this is',
+    explains:
+      'Nothing is changed and nothing is recorded as feedback. You just get an explanation of what this element is and which file draws it.',
+  },
+];
+
+interface FeedbackItem {
+  id: string;
+  folder: 'inbox' | 'working' | 'done';
+  status?: string;
+  intent?: string;
+  comment?: string | null;
+  file?: string | null;
+  line?: number | null;
+  agentNote?: string;
+}
+
+const STATUS_LABEL: Record<string, { text: string; color: string }> = {
+  inbox: { text: 'waiting', color: '#6b7280' },
+  working: { text: 'in progress', color: '#f59e0b' },
+  done: { text: 'done', color: '#10b981' },
+};
+
 export function mountFeedbackToolbar(): void {
   if (document.getElementById('react-dev-feedback')) return;
 
@@ -149,13 +206,38 @@ export function mountFeedbackToolbar(): void {
       .panel h2 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
       .panel .where { margin: 0 0 10px; font-size: 11px; color: #9ca3af;
                       word-break: break-all; }
-      .panel textarea { width: 100%; box-sizing: border-box; min-height: 52px;
-                        margin-bottom: 10px; padding: 7px; border-radius: 7px;
+      .panel textarea { width: 100%; box-sizing: border-box; min-height: 132px;
+                        margin-bottom: 10px; padding: 9px; border-radius: 7px;
                         border: 1px solid #374151; background: #1f2937; color: #f9fafb;
-                        font: inherit; resize: vertical; }
+                        font: inherit; line-height: 1.45; resize: vertical; }
       .intents { display: flex; flex-direction: column; gap: 6px; }
-      .intents button { text-align: left; background: #1f2937; font: inherit; }
-      .intents button:hover, .intents button:focus-visible { background: #2563eb; }
+      .intents .row { display: flex; align-items: stretch; gap: 4px; }
+      .intents .row button.pick { flex: 1; text-align: left; background: #1f2937; font: inherit; }
+      .intents .row button.pick:hover, .intents .row button.pick:focus-visible { background: #2563eb; }
+      .intents .row button.info { width: 28px; padding: 0; background: #1f2937; color: #9ca3af;
+                                  font: 600 12px system-ui, sans-serif; }
+      .intents .row button.info:hover, .intents .row button.info:focus-visible {
+        background: #374151; color: #f9fafb; }
+      .explain { margin: 8px 0 0; padding: 7px 8px; border-radius: 6px; background: #0b1220;
+                 font-size: 11px; line-height: 1.45; color: #cbd5e1; }
+      .explain[hidden] { display: none; }
+      .list { position: fixed; bottom: 60px; right: 16px; z-index: 2147483647; width: 340px;
+              max-height: 62vh; overflow: auto; padding: 12px; border-radius: 12px;
+              background: #111827; color: #f9fafb; font: 400 12px system-ui, sans-serif;
+              box-shadow: 0 10px 30px rgb(0 0 0 / .4); }
+      .list h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; }
+      .item { padding: 8px; border-radius: 8px; background: #1f2937; margin-bottom: 7px; }
+      .item .top { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+      .item .badge { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+      .item .where { font-size: 10px; color: #9ca3af; word-break: break-all; }
+      .item .said { margin: 4px 0 0; font-size: 11px; }
+      .item .agent { margin: 5px 0 0; padding: 5px 6px; border-radius: 5px; background: #0b1220;
+                     font-size: 11px; color: #cbd5e1; }
+      .item .acts { display: flex; gap: 6px; margin-top: 7px; }
+      .item .acts button { flex: 1; font: inherit; font-size: 11px; padding: 5px 8px; }
+      .item .acts .yes { background: #10b981; }
+      .item .acts .no { background: #374151; }
+      .list .empty { color: #9ca3af; font-size: 11px; line-height: 1.5; }
       .panel .cancel { margin-top: 10px; background: transparent; color: #9ca3af;
                        padding: 4px 0; }
       .overlay { position: fixed; inset: 0; pointer-events: none; z-index: 2147483645; }
@@ -176,27 +258,58 @@ export function mountFeedbackToolbar(): void {
       .legend .row i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
       .legend p { margin: 8px 0 0; font-size: 10px; line-height: 1.45; color: #9ca3af; }
     </style>
-    <div class="bar"><button type="button" id="pick">Feedback</button></div>
+    <div class="bar">
+      <button type="button" id="inbox" title="Feedback you have sent">List</button>
+      <button type="button" id="pick">Feedback</button>
+    </div>
     <div class="ring" id="ring" hidden></div>
     <div class="panel" id="panel" hidden role="dialog" aria-label="Send feedback">
       <h2>What do you want here?</h2>
       <p class="where" id="where"></p>
-      <textarea id="note" placeholder="Anything to add? (optional)"></textarea>
-      <div class="intents">
-        <button type="button" data-intent="fix">Something is wrong with it</button>
-        <button type="button" data-intent="reuse">I want this elsewhere too</button>
-        <button type="button" data-intent="style">Change how it looks</button>
-        <button type="button" data-intent="wording">Fix the wording</button>
-        <button type="button" data-intent="explain">Explain what this is</button>
-      </div>
+      <textarea id="note" placeholder="Describe it in your own words — the more detail, the less guessing. Optional."></textarea>
+      <div class="intents" id="intents"></div>
+      <p class="explain" id="explain" hidden></p>
       <button type="button" class="cancel" id="cancel">Cancel (Esc)</button>
     </div>
+    <div class="list" id="list" hidden role="dialog" aria-label="Feedback you have sent"></div>
   `;
   document.body.appendChild(host);
 
   const pickButton = shadow.getElementById('pick') as HTMLButtonElement;
   const ring = shadow.getElementById('ring') as HTMLDivElement;
   const panel = shadow.getElementById('panel') as HTMLDivElement;
+  const listPanel = shadow.getElementById('list') as HTMLDivElement;
+  const explain = shadow.getElementById('explain') as HTMLParagraphElement;
+
+  // Build the intent rows: a wide button to choose, and an (i) that says what
+  // choosing it will actually make the agent do.
+  const intentsBox = shadow.getElementById('intents') as HTMLDivElement;
+  for (const intent of INTENTS) {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const pick = document.createElement('button');
+    pick.type = 'button';
+    pick.className = 'pick';
+    pick.dataset['intent'] = intent.id;
+    pick.textContent = intent.label;
+
+    const info = document.createElement('button');
+    info.type = 'button';
+    info.className = 'info';
+    info.textContent = 'i';
+    info.setAttribute('aria-label', `What "${intent.label}" does`);
+    const show = () => {
+      explain.textContent = intent.explains;
+      explain.hidden = false;
+    };
+    info.addEventListener('click', show);
+    info.addEventListener('mouseenter', show);
+    info.addEventListener('focus', show);
+
+    row.append(pick, info);
+    intentsBox.appendChild(row);
+  }
   const where = shadow.getElementById('where') as HTMLParagraphElement;
   const note = shadow.getElementById('note') as HTMLTextAreaElement;
 
@@ -207,6 +320,7 @@ export function mountFeedbackToolbar(): void {
     panel.hidden = true;
     pending = null;
     note.value = '';
+    explain.hidden = true;
   }
 
   function setPicking(next: boolean): void {
@@ -252,6 +366,107 @@ export function mountFeedbackToolbar(): void {
     note.focus();
   }
 
+  function renderItem(item: FeedbackItem): HTMLDivElement {
+    const box = document.createElement('div');
+    box.className = 'item';
+
+    const top = document.createElement('div');
+    top.className = 'top';
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    const status = STATUS_LABEL[item.folder] ?? STATUS_LABEL['inbox'];
+    badge.textContent = status?.text ?? item.folder;
+    badge.style.background = status?.color ?? '#6b7280';
+    const intent = document.createElement('strong');
+    intent.textContent = item.intent ?? 'fix';
+    top.append(badge, intent);
+    box.appendChild(top);
+
+    const where = document.createElement('div');
+    where.className = 'where';
+    where.textContent = item.file ? `${item.file}:${item.line ?? '?'}` : item.id;
+    box.appendChild(where);
+
+    if (item.comment) {
+      const said = document.createElement('p');
+      said.className = 'said';
+      said.textContent = item.comment;
+      box.appendChild(said);
+    }
+
+    if (item.agentNote) {
+      const note = document.createElement('p');
+      note.className = 'agent';
+      note.textContent = item.agentNote;
+      box.appendChild(note);
+    }
+
+    // Confirmation is yours. The agent can say it finished; only you can say it
+    // is done, and nothing leaves `working/` until you do.
+    if (item.folder === 'working') {
+      const acts = document.createElement('div');
+      acts.className = 'acts';
+      const yes = document.createElement('button');
+      yes.type = 'button';
+      yes.className = 'yes';
+      yes.textContent = 'Yes, done';
+      yes.addEventListener('click', () => void resolve(item.id, 'done'));
+      const no = document.createElement('button');
+      no.type = 'button';
+      no.className = 'no';
+      no.textContent = 'Not fixed';
+      no.addEventListener('click', () => void resolve(item.id, 'reopen'));
+      acts.append(yes, no);
+      box.appendChild(acts);
+    }
+
+    return box;
+  }
+
+  async function resolve(id: string, action: 'done' | 'reopen'): Promise<void> {
+    await fetch('/__react-dev/feedback/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action }),
+    }).catch((error: unknown) => {
+      console.error('[feedback] could not reach the dev server', error);
+    });
+    await renderList();
+  }
+
+  async function renderList(): Promise<void> {
+    let items: FeedbackItem[] = [];
+    try {
+      const response = await fetch('/__react-dev/feedback/list');
+      ({ items } = (await response.json()) as { items: FeedbackItem[] });
+    } catch {
+      items = [];
+    }
+
+    listPanel.replaceChildren();
+    const title = document.createElement('h2');
+    const open = items.filter((item) => item.folder !== 'done');
+    title.textContent = `Your feedback — ${open.length} open, ${items.length - open.length} done`;
+    listPanel.appendChild(title);
+
+    if (items.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent =
+        'Nothing yet. Click Feedback, click something on the page, and pick what you want.';
+      listPanel.appendChild(empty);
+      return;
+    }
+
+    for (const item of items) listPanel.appendChild(renderItem(item));
+
+    const hint = document.createElement('p');
+    hint.className = 'empty';
+    hint.textContent =
+      'Nothing is deleted. An entry only becomes done when you confirm it, and the agent never reads done ones again.';
+    listPanel.appendChild(hint);
+  }
+
   async function sendIntent(intent: string): Promise<void> {
     const target = pending;
     if (!target) return;
@@ -279,7 +494,16 @@ export function mountFeedbackToolbar(): void {
 
     pickButton.textContent = 'Sent ✓';
     window.setTimeout(() => setPicking(false), 1200);
+    if (!listPanel.hidden) await renderList();
   }
+
+  const inboxButton = shadow.getElementById('inbox') as HTMLButtonElement;
+  inboxButton.addEventListener('click', () => {
+    const next = listPanel.hidden;
+    listPanel.hidden = !next;
+    inboxButton.dataset['active'] = String(next);
+    if (next) void renderList();
+  });
 
   mountComponentOverlay(shadow.querySelector('.bar') as HTMLElement, shadow);
 

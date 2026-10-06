@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "n=$(ls .ai/inbox/*.json 2>/dev/null | wc -l | tr -d \" \"); if [ \"$n\" -gt 0 ]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"%s unread visual-feedback entr%s in .ai/inbox/ \u2014 clicked in the running app, each carrying an exact file:line. Mention this to the user and offer the react-feedback skill, which triages, logs and promotes them. Do not read the inbox unless asked.\"}}' \"$n\" \"$([ \"$n\" -eq 1 ] && echo y || echo ies)\"; fi",
+            "command": "n=$(ls .ai/inbox/*.json 2>/dev/null | wc -l | tr -d \" \"); w=$(ls .ai/working/*.json 2>/dev/null | wc -l | tr -d \" \"); if [ \"$n\" -gt 0 ] || [ \"$w\" -gt 0 ]; then printf '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Visual feedback: %s new in .ai/inbox/, %s in .ai/working/ awaiting the user\\u2019s confirmation. Each carries an exact file:line from a click in the running app. Mention this and offer the react-feedback skill. Claim an entry by moving it to .ai/working/; NEVER write to or read .ai/done/ \\u2014 only the user closes feedback, from the toolbar. Do not read the inbox unless asked.\"}}' \"$n\" \"$w\"; fi",
             "timeout": 5
           }
         ]

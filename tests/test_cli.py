@@ -479,7 +479,48 @@ def test_the_inbox_hook_is_silent_when_the_inbox_is_empty(made: Path):
     )
     payload = json.loads(full.stdout)
     assert payload["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
-    assert "1 unread" in payload["hookSpecificOutput"]["additionalContext"]
+    context = payload["hookSpecificOutput"]["additionalContext"]
+    assert "1 new" in context
+
+    # It must also surface work awaiting the USER's confirmation, and say that
+    # closing feedback is not the agent's to do -- an agent that writes to done/
+    # closes the fixes that did not work along with the ones that did.
+    (made / ".ai" / "working").mkdir(parents=True, exist_ok=True)
+    (made / ".ai" / "working" / "claimed.json").write_text('{"comment": "y"}', encoding="utf-8")
+
+    both = subprocess.run(
+        ["sh", "-c", command], cwd=made, capture_output=True, text=True, timeout=20
+    )
+    context = json.loads(both.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "1 new" in context and "1 in .ai/working/" in context
+    assert ".ai/done/" in context, "the hook must tell the agent not to touch done/"
+
+
+def test_feedback_skill_never_closes_its_own_work():
+    """Confirmation belongs to the user; the agent only hands work back.
+
+    Without this the agent marks its own fixes done, and the ones it got wrong
+    disappear with the rest -- which are exactly the ones worth a second look.
+    """
+    body = (REPO_ROOT / "skills" / "react-feedback" / "SKILL.md").read_text()
+    assert "NEVER write to or read `.ai/done/`" in body
+    assert ".ai/working/" in body, "the skill must claim entries before working"
+
+    lifecycle = REPO_ROOT / "skills" / "react-feedback" / "references" / "lifecycle.md"
+    assert lifecycle.is_file(), "the three-folder lifecycle is not documented"
+    assert "awaiting-confirmation" in lifecycle.read_text()
+
+
+def test_feedback_plugin_only_the_user_can_reach_done():
+    """The resolve endpoint is the only writer of done/, and it is user-driven."""
+    plugin = (REPO_ROOT / "templates/react/tools/feedback-plugin.mjs").read_text()
+    assert "feedback/resolve" in plugin and "feedback/list" in plugin
+    # A create must never land anywhere but the inbox.
+    create = plugin.split("'/__react-dev/feedback'")[1]
+    assert "aiDir(root, 'inbox')" in create
+    assert "'done'" not in create.split("server.middlewares.use")[0]
+    # Path traversal: an id is a bare file name or it is rejected.
+    assert "includes('..')" in plugin and "includes('/')" in plugin
 
 
 def test_sync_with_template_also_restores_shared_scaffolding(made: Path, monkeypatch):
@@ -1047,3 +1088,26 @@ def test_storybook_config_is_typechecked():
         "typecheck does not cover .storybook, so its imports are unchecked"
     )
     assert "npm run typecheck" in pkg["scripts"]["verify"]
+
+
+def test_storybook_shows_where_each_component_lives_on_disk():
+    """A story that cannot tell you its file leaves you grepping for it.
+
+    Storybook only knows `./src/.../x.stories.tsx` relative to the root, which is
+    not pasteable into an editor, so main.ts injects the absolute project root
+    and the decorator derives the component path from the story path.
+    """
+    template = REPO_ROOT / "templates" / "react"
+
+    main = (template / ".storybook/main.ts").read_text()
+    assert "__PROJECT_ROOT__" in main and "process.cwd()" in main, (
+        "main.ts must inject the absolute root; the browser cannot know it"
+    )
+
+    preview = (template / ".storybook/preview.ts").read_text()
+    assert "fileName" in preview, "the path comes from parameters.fileName"
+    # `badge.stories.tsx` -> `badge.tsx`: the component, not the story.
+    assert ".stories." in preview and "sourcePaths" in preview
+    assert "sb-source-bar" in preview
+    # Outside the story tree, so it cannot affect layout or a play function.
+    assert "document.body.appendChild" in preview

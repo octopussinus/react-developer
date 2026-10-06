@@ -371,9 +371,33 @@ in the corner.
 | **Fix the wording**            | Sends it to the translation files, so both languages stay in step             |
 | **Explain what this is**       | Just explains it; changes nothing                                             |
 
+Each button has an **(i)** next to it. Click it and you get one sentence on what
+choosing that option will actually make the assistant do — worth reading once.
+
 That records exactly which file and which line drew that thing. Next time you
 type anything to the assistant, it already knows what you pointed at and what you
 asked for — so you never have to describe where something is.
+
+### Nothing you send disappears
+
+The **List** button, next to Feedback, shows everything you have sent and where
+it stands:
+
+| Label           | Means                                                         |
+| --------------- | ------------------------------------------------------------- |
+| **waiting**     | Sent. Nobody has started yet                                  |
+| **in progress** | The assistant is on it, or has finished and is waiting on you |
+| **done**        | You confirmed it is actually fixed                            |
+
+When the assistant finishes something, it writes a short note saying what it
+changed and what to look at — and the entry shows **Yes, done** and **Not fixed**
+underneath. **Only you can press those.** The assistant cannot mark its own work
+done, which is deliberate: the only real test of "is it fixed" is you looking at
+the screen.
+
+**Not fixed** sends it back to the top of the list and clears the assistant's
+note, so the next attempt starts fresh. Nothing is ever deleted, and once you
+confirm something as done the assistant never reads it again.
 
 ## Seeing what was reused and what is new
 
@@ -459,6 +483,72 @@ npx shadcn@latest add /path/to/react-developer/registry/public/r/NAME.json
 That does exactly the same thing and works today on your own machine. Ask the
 assistant to publish the registry if you want the short form; it needs the
 project's code hosting set up once.
+
+## Three more things worth knowing
+
+### Storybook — seeing every state of a component
+
+Your site shows a loading spinner for half a second and an error screen only when
+something actually breaks. Storybook shows every one of those states on demand,
+each component on its own page:
+
+```
+npm run storybook
+```
+
+Then open the address it prints — normally **http://localhost:6006**, but if that
+number is taken it quietly uses another one, so read the line rather than
+assuming. Leave it running in its own Terminal, like the site itself.
+
+Every component the assistant builds gets a page here — that part is automatic,
+and the project rules require it. The extra states (loading, empty, error, very
+long text) are written in as it implements the component, so if one is missing,
+that is a fair thing to ask for. A switch in the top bar flips the whole thing
+between light and dark.
+
+At the bottom of every page there is a **grey bar with the file path** of the
+component you are looking at — `src/components/atoms/badge.tsx` — and a **Copy
+path** button that copies the full path from your disk. That is the quickest way
+to answer "where does this thing actually live?"
+
+Separately, `npm run visual` photographs your **real pages** in light and dark
+and tells you if anything moved since last time. Different tool, same idea.
+
+Think of it as the workshop. The site is the finished room.
+
+### `/react-i18n` — languages
+
+Your project starts with **English and Polish**. No visible text is written
+directly into the code — it all lives in translation files, so adding a language
+never means hunting through components.
+
+```
+> /react-i18n
+```
+
+Use it to add a language, or when a translation is missing. The automatic check
+(`npm run i18n:check`) compares the languages and **fails if one is missing a
+line** — so a half-translated screen cannot quietly ship showing English in the
+middle of Polish.
+
+### `/react-feedback` — teaching it to stop repeating a mistake
+
+If you correct the same thing three times, that is not a correction any more —
+it is a missing rule.
+
+```
+> /react-feedback
+```
+
+It reads everything you sent with the **Feedback** button plus the corrections
+you typed, groups them, and when something has come up **three or more times** it
+turns that into a permanent rule: either a line in `AGENTS.md` that the assistant
+reads every single time, or — if the rule can be checked by a machine — an
+automatic check that fails the build.
+
+Worth running every week or so, and after any review. It is the only part of the
+system that makes the assistant get better at _your_ project rather than staying
+the same.
 
 ## When something goes wrong
 

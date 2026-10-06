@@ -20,14 +20,15 @@ chat -> .ai/feedback.md -> AGENTS.md ## Learned rules -> ESLint rule -> CI gate
 
 | Source | What it is |
 |---|---|
-| `.ai/inbox/*.json` | From the in-app toolbar: an **`intent`**, the exact `file`/`line`/`component`, selector, computed styles, and an optional note |
+| `.ai/inbox/*.json` | New. From the toolbar: an **`intent`**, exact `file`/`line`/`component`, styles, optional note |
+| `.ai/working/*.json` | Claimed by you; open until the **user** confirms |
+| `.ai/done/*.json` | Closed by the user. **Never read these** |
 | `specs/*/review.md` | Unchecked `## Human review` items |
 | The current conversation | What the user just told you |
 
 ## Route by `intent` first
 
-Each inbox entry carries what the user *wanted*, picked in the toolbar. Act on
-that rather than re-deriving it from the optional note.
+Each entry carries what the user *wanted*. Act on that, not on the optional note.
 
 | `intent` | Do this |
 |---|---|
@@ -37,17 +38,19 @@ that rather than re-deriving it from the optional note.
 | `wording` | `react-i18n` — the string belongs in a locale file |
 | `explain` | Answer it. Nothing to record |
 
-Only `fix` is feedback. Logging the others inflates the occurrence counts that
-decide promotion, which is the one number this skill runs on.
-
-`reuse` has one rule worth stating here: **ask which feature needs it**, because
-that answers the layer question and proves the need is real. "Just in general" is
-premature — record it and stop. Full procedure:
-[references/intents.md](references/intents.md).
+Only `fix` is feedback; logging the rest inflates the counts that decide
+promotion. For `reuse`, **ask which feature needs it** — that answers the layer
+question and proves the need is real; "just in general" is premature, so record
+it and stop. Detail: [references/intents.md](references/intents.md).
 
 ## Procedure
 
-1. **Collect.** Read every inbox entry and every unchecked review item. For
+0. **Claim it:** `mv .ai/inbox/<file>.json .ai/working/`. When you finish, set
+   `"status": "awaiting-confirmation"` and an `"agentNote"` saying what you
+   changed and what to check, and **leave it there** — only the user closes
+   feedback: [references/lifecycle.md](references/lifecycle.md).
+
+1. **Collect.** Read `.ai/inbox/` and `.ai/working/` — never `.ai/done/`. For
    inbox entries, the `file` and `line` are exact — go read that code before
    deciding what the note means. Handle `reuse`/`style`/`wording`/`explain` as
    routed above; only `fix` entries continue here.
@@ -73,7 +76,8 @@ premature — record it and stop. Full procedure:
    **Ask before adding a lint rule** — it will fail CI for everyone, so it is
    the user's call, not yours. Show the rule and the incidents that justify it.
 5. **Close the loop.** Tick the promoted items in `review.md` and mark them
-   `promoted` in `.ai/feedback.md`. Clear processed inbox entries.
+   `promoted` in `.ai/feedback.md`. Then tell the user which entries are waiting
+   for their Yes/No in the toolbar — do not clear anything yourself.
 
 ## Hard rules
 
@@ -81,6 +85,8 @@ premature — record it and stop. Full procedure:
   appending. At the limit, promote to an ESLint rule instead, or move an existing
   section into a doc `AGENTS.md` links to — Codex truncates, and a rule past the
   cutoff is a rule nobody reads.
+- NEVER write to or read `.ai/done/`, and never delete an entry. Confirmation is
+  the user's, and it is the only check on work that looks finished but is not.
 - NEVER promote silently. Every new rule carries a one-line rationale citing the
   occurrences that caused it.
 - NEVER promote at one or two occurrences. One correction is a preference; three

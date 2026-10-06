@@ -248,7 +248,7 @@ i oznaczy to.
 ```
 
 `1` to numer funkcji z planu. Przygotuje bezpieczną kopię do pracy i utworzy
-pliki.
+pliki. Zrobić skrypt który pusci claude jako osobny proces zeby mial osobny kontekst.
 
 **Krok 5 — zapisz dokładnie, co zostanie zbudowane.**
 
@@ -379,9 +379,33 @@ Kiedy Twoja strona działa w przeglądarce, w narożniku jest mały przycisk
 | **Fix the wording**            | Trafia do plików z tłumaczeniami, żeby oba języki się zgadzały                      |
 | **Explain what this is**       | Tylko wyjaśnia, nic nie zmienia                                                     |
 
+Przy każdym przycisku jest **(i)**. Kliknij go, a dostaniesz jedno zdanie o tym,
+co wybór tej opcji faktycznie każe zrobić asystentowi — warto przeczytać raz.
+
 To zapisuje dokładnie, który plik i która linijka narysowały ten element. Przy
 następnej wiadomości do asystenta on już wie, co wskazałeś i o co poprosiłeś —
 więc nigdy nie musisz tłumaczyć, gdzie coś jest.
+
+### Nic, co wyślesz, nie znika
+
+Przycisk **List**, obok Feedback, pokazuje wszystko, co wysłałeś, i na jakim jest
+etapie:
+
+| Etykieta        | Co znaczy                                                |
+| --------------- | -------------------------------------------------------- |
+| **waiting**     | Wysłane. Nikt jeszcze nie zaczął                         |
+| **in progress** | Asystent się tym zajmuje albo skończył i czeka na Ciebie |
+| **done**        | Potwierdziłeś, że naprawdę jest naprawione               |
+
+Kiedy asystent coś skończy, dopisuje krótką notatkę — co zmienił i na co spojrzeć
+— a pod spodem pojawiają się przyciski **Yes, done** i **Not fixed**. **Tylko Ty
+możesz je wcisnąć.** Asystent nie może sam oznaczyć swojej pracy jako zrobionej i
+to jest celowe: jedynym prawdziwym sprawdzianem „czy naprawione" jest Twoje
+spojrzenie na ekran.
+
+**Not fixed** odsyła zgłoszenie na początek listy i kasuje notatkę asystenta, żeby
+kolejne podejście zaczynało się od czysta. Nic nigdy nie jest usuwane, a to, co
+potwierdzisz jako zrobione, nie trafia już nigdy do asystenta.
 
 ## Podgląd: co zostało użyte ponownie, a co jest nowe
 
@@ -471,6 +495,73 @@ Robi dokładnie to samo i działa od razu na Twoim komputerze. Jeśli chcesz kr�
 formę, poproś asystenta o opublikowanie rejestru — wymaga to jednorazowego
 włączenia hostingu dla repozytorium.
 
+## Trzy dodatkowe rzeczy, które warto znać
+
+### Storybook — podgląd każdego stanu komponentu
+
+Twoja strona pokazuje kółko ładowania przez pół sekundy, a ekran błędu tylko
+wtedy, gdy coś naprawdę się zepsuje. Storybook pokazuje wszystkie te stany na
+żądanie, każdy komponent na osobnej stronie:
+
+```
+npm run storybook
+```
+
+Potem otwórz adres, który wypisze — zwykle **http://localhost:6006**, ale jeśli ten
+numer jest zajęty, po cichu weźmie inny, więc przeczytaj tę linijkę, nie zakładaj z
+góry. Zostaw to włączone w osobnym Terminalu, tak samo jak samą stronę.
+
+Każdy komponent, który zbuduje asystent, dostaje tu swoją stronę — to akurat
+dzieje się automatycznie i wymagają tego zasady projektu. Dodatkowe stany
+(ładowanie, pusto, błąd, bardzo długi tekst) asystent dopisuje przy implementacji
+komponentu, więc jeśli któregoś brakuje, możesz spokojnie o niego poprosić.
+Przełącznik na górnym pasku zmienia całość między trybem jasnym a ciemnym.
+
+Na dole każdej strony jest **szary pasek ze ścieżką do pliku** komponentu, który
+oglądasz — `src/components/atoms/badge.tsx` — oraz przycisk **Copy path**, który
+kopiuje pełną ścieżkę z Twojego dysku. To najszybsza odpowiedź na pytanie „gdzie
+to właściwie leży?".
+
+Osobna sprawa: `npm run visual` robi zdjęcia **prawdziwym stronom** Twojej
+aplikacji w obu trybach i mówi, czy coś się przesunęło od poprzedniego razu. Inne
+narzędzie, ta sama myśl.
+
+Pomyśl o tym jak o warsztacie. Strona to gotowy pokój.
+
+### `/react-i18n` — języki
+
+Projekt startuje z **angielskim i polskim**. Żaden widoczny tekst nie jest wpisany
+bezpośrednio w kod — wszystko siedzi w plikach z tłumaczeniami, więc dodanie
+języka nigdy nie oznacza przeszukiwania komponentów.
+
+```
+> /react-i18n
+```
+
+Użyj tego, żeby dodać język albo gdy brakuje tłumaczenia. Automatyczna kontrola
+(`npm run i18n:check`) porównuje języki i **nie przechodzi, jeśli w którymś
+brakuje linijki** — dzięki temu półprzetłumaczony ekran nie wejdzie po cichu z
+angielskim w środku polskiego.
+
+### `/react-feedback` — żeby przestał powtarzać ten sam błąd
+
+Jeśli poprawiasz tę samą rzecz trzeci raz, to nie jest już poprawka — to brakująca
+zasada.
+
+```
+> /react-feedback
+```
+
+Czyta wszystko, co wysłałeś przyciskiem **Feedback**, plus Twoje uwagi z czatu,
+grupuje to, a kiedy coś pojawiło się **trzy razy lub więcej**, zamienia to w stałą
+zasadę: albo linijkę w `AGENTS.md`, którą asystent czyta za każdym razem, albo —
+jeśli zasadę da się sprawdzić maszynowo — automatyczną kontrolę, która wywala
+build.
+
+Warto uruchamiać mniej więcej raz w tygodniu i po każdym przeglądzie. To jedyna
+część systemu, dzięki której asystent robi się lepszy **w Twoim** projekcie,
+zamiast stać w miejscu.
+
 ## Kiedy coś pójdzie nie tak
 
 | Co widzisz                                        | Co zrobić                                                                                                                                        |
@@ -504,3 +595,5 @@ włączenia hostingu dla repozytorium.
 **Czytaj ostatni blok każdej odpowiedzi. Wpisuj komendę, którą podaje.**
 
 Cała reszta tego pliku to szczegóły, które możesz sprawdzić, kiedy będą potrzebne.
+
+Dodać o storybook

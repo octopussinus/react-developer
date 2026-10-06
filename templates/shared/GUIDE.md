@@ -656,6 +656,31 @@ Now response types are generated, and `AGENTS.md` forbids hand-writing them. If
 a field is missing the agent must stop and say so instead of inventing it — the
 most expensive AI frontend bug class, closed.
 
+**More than one backend?** Adding one is an `.env` change and nothing else:
+
+```bash
+VITE_API_URL=https://api.example.com
+VITE_API_URLS={"auth":"https://auth.example.com","payments":"https://pay.example.com"}
+```
+
+```ts
+import { api, apiFor } from '@/lib/api-client';
+
+await api.get('/orders'); // the default API
+await apiFor('auth').post('/sessions', c); // a named one
+```
+
+Both go through the same client, so timeouts, `ApiError` normalisation and the
+ban on raw `fetch` apply equally. A name that is not configured throws at the
+call site naming the ones that are, rather than requesting `undefined/sessions`
+and failing as a confusing 404. The JSON is validated at startup, so a typo in a
+URL breaks the boot, not the first request that happens to use it.
+
+Two things that are easy to forget: each backend needs **its own MSW handlers**
+while mocks are on (handlers match the full URL), and a second OpenAPI contract
+needs its own config — `openapi-ts -f openapi-ts.auth.config.ts` with a
+different `output.path`, since `defineConfig` takes one config, not a list.
+
 ### See every component state — Storybook
 
 ```bash

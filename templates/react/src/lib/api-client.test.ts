@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { env } from '@/config/env';
-import { ApiError, api } from './api-client';
+import { ApiError, api, apiFor } from './api-client';
 
 /**
  * Written because `npm run test:mutation` reported 68 uncovered mutants in this
@@ -134,5 +134,32 @@ describe('ApiError.isRetryable', () => {
     [422, false, 'validation'],
   ])('%i -> %s (%s)', (status, expected) => {
     expect(new ApiError(status, '/x', 'msg').isRetryable).toBe(expected);
+  });
+});
+
+describe('apiFor — extra APIs from VITE_API_URLS', () => {
+  it('builds requests against the named base URL, not the default one', async () => {
+    vi.spyOn(env, 'VITE_API_URLS', 'get').mockReturnValue({
+      auth: 'https://auth.example.com',
+    });
+    const spy = mockFetch({ jsonBody: { ok: true } });
+
+    await apiFor('auth').get('/sessions');
+
+    expect(spy).toHaveBeenCalledWith('https://auth.example.com/sessions', expect.anything());
+  });
+
+  it('names what IS configured when asked for one that is not', () => {
+    vi.spyOn(env, 'VITE_API_URLS', 'get').mockReturnValue({ auth: 'https://auth.example.com' });
+
+    // Without this the request would be built against `undefined/charges` and
+    // surface as a confusing 404 instead of a configuration error.
+    expect(() => apiFor('payments')).toThrow(/No API named "payments"/);
+    expect(() => apiFor('payments')).toThrow(/Configured: auth/);
+  });
+
+  it('says so plainly when none are configured', () => {
+    vi.spyOn(env, 'VITE_API_URLS', 'get').mockReturnValue({});
+    expect(() => apiFor('auth')).toThrow(/None are configured yet/);
   });
 });

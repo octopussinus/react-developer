@@ -28,8 +28,8 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
-function buildUrl(path: string, params?: RequestOptions['params']): string {
-  const url = new URL(path.replace(/^\//, ''), `${env.VITE_API_URL.replace(/\/$/, '')}/`);
+function buildUrl(baseUrl: string, path: string, params?: RequestOptions['params']): string {
+  const url = new URL(path.replace(/^\//, ''), `${baseUrl.replace(/\/$/, '')}/`);
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
@@ -37,12 +37,13 @@ function buildUrl(path: string, params?: RequestOptions['params']): string {
 }
 
 async function request<T>(
+  baseUrl: string,
   method: string,
   path: string,
   body?: unknown,
   options: RequestOptions = {},
 ): Promise<T> {
-  const url = buildUrl(path, options.params);
+  const url = buildUrl(baseUrl, path, options.params);
   const timeout = AbortSignal.timeout(env.VITE_API_TIMEOUT_MS);
   const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 
@@ -77,14 +78,53 @@ async function request<T>(
   return (await response.json()) as T;
 }
 
-export const api = {
-  get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, undefined, options),
-  post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>('POST', path, body, options),
-  patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>('PATCH', path, body, options),
-  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>('PUT', path, body, options),
-  delete: <T>(path: string, options?: RequestOptions) =>
-    request<T>('DELETE', path, undefined, options),
-};
+export interface ApiClient {
+  get: <T>(path: string, options?: RequestOptions) => Promise<T>;
+  post: <T>(path: string, body?: unknown, options?: RequestOptions) => Promise<T>;
+  patch: <T>(path: string, body?: unknown, options?: RequestOptions) => Promise<T>;
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) => Promise<T>;
+  delete: <T>(path: string, options?: RequestOptions) => Promise<T>;
+}
+
+/** A client bound to one base URL. Still the only place `fetch` is called. */
+export function createApiClient(baseUrl: string): ApiClient {
+  return {
+    get: (path, options) => request(baseUrl, 'GET', path, undefined, options),
+    post: (path, body, options) => request(baseUrl, 'POST', path, body, options),
+    patch: (path, body, options) => request(baseUrl, 'PATCH', path, body, options),
+    put: (path, body, options) => request(baseUrl, 'PUT', path, body, options),
+    delete: (path, options) => request(baseUrl, 'DELETE', path, undefined, options),
+  };
+}
+
+/** The default API — `VITE_API_URL`. Most features need only this. */
+export const api: ApiClient = createApiClient(env.VITE_API_URL);
+
+/**
+ * A client for one of the extra APIs declared in `VITE_API_URLS`.
+ *
+ *   const auth = apiFor('auth');
+ *   await auth.post('/sessions', credentials);
+ *
+ * Throws immediately, naming what IS configured, rather than building a request
+ * against `undefined/sessions` and failing as a confusing 404 at runtime.
+ *
+ * Deliberately NOT memoised: a client is five closures over a string, so a cache
+ * buys nothing and makes the function ignore a changed environment -- which is
+ * hidden state that showed up the moment it was tested.
+ */
+export function apiFor(name: string): ApiClient {
+  const baseUrl = env.VITE_API_URLS[name];
+  if (baseUrl === undefined) {
+    const configured = Object.keys(env.VITE_API_URLS);
+    throw new Error(
+      `No API named "${name}". Add it to VITE_API_URLS in your .env, e.g. ` +
+        `VITE_API_URLS={"${name}":"https://..."}. ` +
+        (configured.length > 0
+          ? `Configured: ${configured.join(', ')}.`
+          : 'None are configured yet.'),
+    );
+  }
+
+  return createApiClient(baseUrl);
+}
