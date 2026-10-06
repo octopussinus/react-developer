@@ -35,7 +35,7 @@ useful than a confident one that invented twelve answers.
 2. **Inventory the codebase before specifying anything.** This is what keeps the
    spec from inventing parallel infrastructure:
    - `ls src/components/atoms/` — which primitives already exist?
-   - `ls src/features/` — is there an adjacent feature to follow?
+   - `ls src/modules/` — is there an adjacent feature to follow?
    - `cat src/config/routes.ts` — route and meta shape
    - `ls src/lib/api/generated 2>/dev/null` — is there a typed contract?
 3. Write the spec using the section list below.

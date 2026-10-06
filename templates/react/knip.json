@@ -5,7 +5,8 @@
     "scripts/*.mjs",
     "src/lib/use-zod-form.ts",
     "src/lib/api-client.ts",
-    "src/features/*/index.ts",
+    "src/modules/*/index.ts",
+    "src/modules/*/*/index.ts",
     "src/testing/mocks/factories/index.ts",
     "src/testing/render.tsx"
   ],

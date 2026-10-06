@@ -76,6 +76,9 @@ let prettierModule;
 let prettierTried = false;
 
 async function formatIfPossible(contents, absolute) {
+  // Prettier has no parser for a .gitkeep and says so loudly; the file is empty
+  // by definition, so there is nothing to format and nothing to warn about.
+  if (!/\.[a-z]+$/i.test(absolute) || absolute.endsWith('.gitkeep')) return contents;
   if (!prettierTried) {
     prettierTried = true;
     try {
@@ -138,21 +141,34 @@ function parseFlags(args) {
   return { flags, positional };
 }
 
-async function assertFeatureExists(slug) {
-  if (!existsSync(join(ROOT, 'src/features', slug))) {
-    fail(`feature "${slug}" does not exist. Run:  npm run gen -- feature ${slug}`);
+/** Every page slice lives at src/modules/<module>/<page>. */
+function pageDir(moduleName, page) {
+  return `src/modules/${moduleName}/${page}`;
+}
+
+/** Code shared by a module's pages sits one level up. */
+function moduleDir(moduleName) {
+  return `src/modules/${moduleName}`;
+}
+
+async function assertPageExists(moduleName, page) {
+  if (!existsSync(join(ROOT, pageDir(moduleName, page)))) {
+    fail(
+      `page "${moduleName}/${page}" does not exist. Run:  ` +
+        `npm run gen -- feature ${moduleName} ${page}`,
+    );
   }
 }
 
 /** Register a route in the registry, before the anchor comment. */
-async function registerRoute({ slug, pageName, routePath, sidebar }) {
-  const importPath = `@/features/${slug}/pages/${toKebab(pageName)}`;
+async function registerRoute({ moduleName, page, pageName, routePath, sidebar, namespace }) {
+  const importPath = `@/modules/${moduleName}/${page}/${toKebab(pageName)}`;
   const entry = [
     '  {',
     `    path: '${routePath}',`,
     `    lazy: () => import('${importPath}'),`,
     '    meta: {',
-    `      titleKey: '${slug}:title',`,
+    `      titleKey: '${namespace}:title',`,
     ...(sidebar ? [`      sidebar: { icon: 'square', group: 'main' },`] : []),
     '    },',
     '  },',
@@ -199,10 +215,12 @@ async function addLocaleNamespace(slug, titleKey) {
       /(import type nav from '@\/locales\/en\/nav.json';)/,
       `$1\nimport type ${toCamel(slug)} from '@/locales/en/${slug}.json';`,
     );
-    return withImport.replace(
-      /(\s+)(nav: typeof nav;)/,
-      `$1$2$1${toCamel(slug)}: typeof ${toCamel(slug)};`,
-    );
+    // The KEY must be the namespace string exactly as i18next sees it; only the
+    // imported identifier is camelised. They were both camelised, so a
+    // hyphenated namespace declared `ordersList` while the runtime asked for
+    // `orders-list` -- invisible until a name had more than one word.
+    const key = /^[A-Za-z_$][\w$]*$/.test(slug) ? slug : `'${slug}'`;
+    return withImport.replace(/(\s+)(nav: typeof nav;)/, `$1$2$1${key}: typeof ${toCamel(slug)};`);
   });
 }
 
@@ -212,13 +230,22 @@ async function addLocaleNamespace(slug, titleKey) {
 
 const body = {
   featureIndex: (slug, pageName) => `/**
- * Public surface of the "${slug}" feature.
+ * Public surface of this page.
  *
  * Only what is exported here may be imported from outside. eslint-plugin-boundaries
  * enforces it, so adding an export is a deliberate API decision.
  */
-export { default as ${pageName} } from './pages/${toKebab(pageName)}';
+export { default as ${pageName} } from './${toKebab(pageName)}';
 export type { ${toPascal(slug)}Item } from './types';
+`,
+
+  moduleIndex: (moduleName) => `/**
+ * Public surface of the "${moduleName}" module: things its pages share.
+ *
+ * A page may import this; another module may not. Shared code here must not
+ * import a page, or it stops being shareable the moment that page changes.
+ */
+export {};
 `,
 
   types: (slug) => `/**
@@ -320,7 +347,7 @@ describe('use${Pascal}List', () => {
     const Pascal = toPascal(slug);
     return `import { useTranslation } from 'react-i18next';
 import { EmptyState, ErrorState, LoadingState } from '@/components/molecules';
-import { use${Pascal}List } from '../api/use-${toKebab(slug)}-list';
+import { use${Pascal}List } from './api/use-${toKebab(slug)}-list';
 
 /**
  * All four states are handled explicitly. Early returns, not nested ternaries --
@@ -408,7 +435,7 @@ export const Default: Story = {};
   mockFactory: (slug, entity) => {
     const camel = toCamel(entity);
     return `import { faker } from '../factories';
-import type { ${entity} } from '@/features/${slug}';
+import type { ${entity} } from '@/modules/${slug}';
 
 /**
  * Factory for ${entity}. Always accept overrides so a test can pin the one field
@@ -544,6 +571,7 @@ describe('${name}', () => {
 
   sharedStory: (layer, name) => {
     const title = {
+      module: `${toPascal(moduleName)}/Shared`,
       atom: 'Atoms',
       molecule: 'Molecules',
       organism: 'Organisms',
@@ -615,85 +643,118 @@ describe('${name}', () => {
 // --------------------------------------------------------------------------- //
 
 async function genFeature(positional, flags) {
-  const [raw] = positional;
-  if (!raw) fail('usage: npm run gen -- feature <slug> [--route=/path] [--no-sidebar]');
-
-  const slug = toKebab(raw);
-  const Pascal = toPascal(slug);
-  const pageName = `${Pascal}Page`;
-  const routePath = typeof flags.route === 'string' ? flags.route : `/${slug}`;
-
-  if (existsSync(join(ROOT, 'src/features', slug))) {
-    fail(`feature "${slug}" already exists`);
+  const [rawModule, rawPage] = positional;
+  if (!rawModule || !rawPage) {
+    fail('usage: npm run gen -- feature <module> <page> [--route=/path]');
   }
 
-  const base = `src/features/${slug}`;
-  await write(`${base}/types/index.ts`, body.types(slug));
-  await write(`${base}/api/use-${slug}-list.ts`, body.api(slug));
-  await write(`${base}/api/use-${slug}-list.test.ts`, body.apiTest(slug));
-  await write(`${base}/pages/${toKebab(pageName)}.tsx`, body.page(slug, pageName));
-  await write(`${base}/components/.gitkeep`, '');
-  await write(`${base}/hooks/.gitkeep`, '');
-  await write(`${base}/index.ts`, body.featureIndex(slug, pageName));
+  const moduleName = toKebab(rawModule);
+  const page = toKebab(rawPage);
+  // The i18n namespace and the mock entity are per PAGE, so two pages of one
+  // module cannot quietly share a key set and drift apart.
+  const namespace = `${moduleName}-${page}`;
+  const Pascal = toPascal(page);
+  const pageName = `${Pascal}Page`;
+  const routePath = typeof flags.route === 'string' ? flags.route : `/${moduleName}/${page}`;
 
-  await addLocaleNamespace(slug, Pascal);
-  await registerRoute({ slug, pageName, routePath, sidebar: flags['no-sidebar'] !== true });
+  if (existsSync(join(ROOT, pageDir(moduleName, page)))) {
+    fail(`page "${moduleName}/${page}" already exists`);
+  }
 
-  // Mocks come with the feature, not later. Without them the first `npm run dev`
+  const base = pageDir(moduleName, page);
+  await write(`${base}/types/index.ts`, body.types(namespace));
+  // File name and template must agree: the hook name is derived from the same
+  // slug, and naming the file after `page` while the template used `namespace`
+  // produced `use-list-list.ts` exporting `useOrdersListList`.
+  await write(`${base}/api/use-${namespace}-list.ts`, body.api(namespace));
+  await write(`${base}/api/use-${namespace}-list.test.ts`, body.apiTest(namespace));
+  await write(`${base}/${toKebab(pageName)}.tsx`, body.page(namespace, pageName));
+  await write(`${base}/index.ts`, body.featureIndex(namespace, pageName));
+  // The folders the structure promises. Empty ones are kept so the shape is
+  // obvious before anything is in them.
+  for (const dir of ['components', 'hooks', 'lib', 'constants', 'validation']) {
+    await write(`${base}/${dir}/.gitkeep`, '');
+  }
+
+  // The module's own shared folders, created once with the first page.
+  if (!existsSync(join(ROOT, moduleDir(moduleName), 'index.ts'))) {
+    await write(`${moduleDir(moduleName)}/index.ts`, body.moduleIndex(moduleName));
+    for (const dir of ['components', 'lib', 'types']) {
+      await write(`${moduleDir(moduleName)}/${dir}/.gitkeep`, '');
+    }
+  }
+
+  await addLocaleNamespace(namespace, Pascal);
+  await registerRoute({
+    moduleName,
+    page,
+    pageName,
+    routePath,
+    namespace,
+    sidebar: flags['no-sidebar'] !== true,
+  });
+
+  // Mocks come with the page, not later. Without them the first `npm run dev`
   // shows an error state and the agent has nothing to build the UI against.
-  const entity = `${Pascal}Item`;
-  await write(`src/testing/mocks/factories/${toKebab(entity)}.ts`, body.mockFactory(slug, entity));
-  await write(`src/testing/mocks/handlers/${slug}.ts`, body.mockHandler(slug, entity));
-  await registerMockHandlers(slug, entity);
+  // Named after the namespace, not the page: two modules each with a `list`
+  // page would otherwise both generate `ListItem` and collide in src/testing.
+  const entity = `${toPascal(namespace)}Item`;
+  await write(
+    `src/testing/mocks/factories/${toKebab(entity)}.ts`,
+    body.mockFactory(`${moduleName}/${page}`, entity),
+  );
+  await write(`src/testing/mocks/handlers/${namespace}.ts`, body.mockHandler(namespace, entity));
+  await registerMockHandlers(namespace, entity);
 
-  return { slug, routePath };
+  return { moduleName, page, routePath };
 }
 
 async function genComponent(positional) {
-  const [rawSlug, rawName] = positional;
-  if (!rawSlug || !rawName) fail('usage: npm run gen -- component <feature> <ComponentName>');
+  const [rawModule, rawPage, rawName] = positional;
+  if (!rawModule || !rawPage || !rawName) {
+    fail('usage: npm run gen -- component <module> <page> <ComponentName>');
+  }
 
-  const slug = toKebab(rawSlug);
-  await assertFeatureExists(slug);
+  const moduleName = toKebab(rawModule);
+  const page = toKebab(rawPage);
+  await assertPageExists(moduleName, page);
 
   const name = toPascal(rawName);
-  const base = `src/features/${slug}/components`;
-  await write(`${base}/${toKebab(name)}.tsx`, body.component(slug, name));
+  const base = `${pageDir(moduleName, page)}/components`;
+  const title = `${toPascal(moduleName)}/${toPascal(page)}`;
+  await write(`${base}/${toKebab(name)}.tsx`, body.component(page, name));
   await write(`${base}/${toKebab(name)}.test.tsx`, body.componentTest(name));
-  await write(`${base}/${toKebab(name)}.stories.tsx`, body.componentStory(slug, name));
-  return { slug, name };
+  await write(`${base}/${toKebab(name)}.stories.tsx`, body.componentStory(title, name));
+  return { moduleName, page, name };
 }
 
 async function genHook(positional) {
-  const [rawSlug, rawName] = positional;
-  if (!rawSlug || !rawName) fail('usage: npm run gen -- hook <feature> use<Name>');
+  const [rawModule, rawPage, rawName] = positional;
+  if (!rawModule || !rawPage || !rawName) {
+    fail('usage: npm run gen -- hook <module> <page> use<Name>');
+  }
 
-  const slug = toKebab(rawSlug);
-  await assertFeatureExists(slug);
+  const moduleName = toKebab(rawModule);
+  const page = toKebab(rawPage);
+  await assertPageExists(moduleName, page);
 
   let name = toPascal(rawName);
   if (!name.startsWith('Use')) fail(`hook name must start with "use" (got "${rawName}")`);
   name = `use${name.slice(3)}`;
 
-  const base = `src/features/${slug}/hooks`;
+  const base = `${pageDir(moduleName, page)}/hooks`;
   await write(`${base}/${toKebab(name)}.ts`, body.hook(name));
   await write(`${base}/${toKebab(name)}.test.ts`, body.hookTest(name));
-  return { slug, name };
+  return { moduleName, page, name };
 }
 
+/**
+ * A page IS the unit now: `modules/<module>/<page>/` owns its api, components,
+ * hooks and the rest. Kept as a name because the pipeline and half the docs say
+ * "page", and an alias costs nothing next to two commands that differ by a word.
+ */
 async function genPage(positional, flags) {
-  const [rawSlug, rawName] = positional;
-  if (!rawSlug || !rawName) fail('usage: npm run gen -- page <feature> <PageName> --route=/path');
-
-  const slug = toKebab(rawSlug);
-  await assertFeatureExists(slug);
-
-  const pageName = toPascal(rawName);
-  const routePath = typeof flags.route === 'string' ? flags.route : `/${slug}/${toKebab(pageName)}`;
-
-  await write(`src/features/${slug}/pages/${toKebab(pageName)}.tsx`, body.page(slug, pageName));
-  await registerRoute({ slug, pageName, routePath, sidebar: flags['no-sidebar'] !== true });
-  return { slug, pageName, routePath };
+  return genFeature(positional, flags);
 }
 
 /**
@@ -743,16 +804,38 @@ const LAYER_DIRS = {
   template: 'templates',
 };
 
-/** Append an export to a layer barrel, keeping it sorted and idempotent. */
-async function addBarrelExport(layer, name) {
-  const dir = LAYER_DIRS[layer];
-  const relative = `src/components/${dir}/index.ts`;
-  const line = `export { ${name}, type ${name}Props } from './${toKebab(name)}';`;
+/**
+ * Append an export to a barrel, keeping it sorted and idempotent.
+ *
+ * `--to=module` has its own barrel one level up, and its components live in a
+ * subfolder of it -- so the export path differs from the global layers, where
+ * the barrel sits beside the component.
+ */
+async function addBarrelExport(layer, name, moduleName) {
+  const toModule = layer === 'module';
+  const relative = toModule
+    ? `src/modules/${moduleName}/index.ts`
+    : `src/components/${LAYER_DIRS[layer]}/index.ts`;
+  const from = toModule ? `./components/${toKebab(name)}` : `./${toKebab(name)}`;
+  const line = `export { ${name}, type ${name}Props } from '${from}';`;
 
   await edit(relative, (source) => {
-    if (source.includes(`from './${toKebab(name)}'`)) return source;
-    const lines = [...source.split('\n').filter(Boolean), line].sort();
-    return lines.join('\n') + '\n';
+    if (source.includes(`from '${from}'`)) return source;
+    // Sort the EXPORTS only. A module barrel carries a doc comment, and sorting
+    // every line scrambled it into nonsense -- the global layer barrels are pure
+    // export lists, which is why this never showed up before.
+    const lines = source.split('\n');
+    const header = [];
+    const exports = [];
+    for (const entry of lines) {
+      const trimmed = entry.trim();
+      if (trimmed === '' || trimmed === 'export {};') continue;
+      if (trimmed.startsWith('export ')) exports.push(entry);
+      else header.push(entry);
+    }
+    exports.push(line);
+    exports.sort();
+    return [...header, ...(header.length > 0 ? [''] : []), ...exports].join('\n') + '\n';
   });
 }
 
@@ -786,22 +869,31 @@ async function genShared(layer, positional) {
  * either completes or fails loudly.
  */
 async function genPromote(positional, flags) {
-  const [rawSlug, rawName] = positional;
+  const [rawModule, rawPage, rawName] = positional;
   const layer = typeof flags.to === 'string' ? flags.to : '';
+  const targets = { module: true, ...LAYER_DIRS };
 
-  if (!rawSlug || !rawName || !(layer in LAYER_DIRS)) {
+  if (!rawModule || !rawPage || !rawName || !(layer in targets)) {
     fail(
-      'usage: npm run gen -- promote <feature> <ComponentName> --to=atom|molecule|organism|template',
+      'usage: npm run gen -- promote <module> <page> <ComponentName> ' +
+        '--to=module|atom|molecule|organism|template',
     );
   }
 
-  const slug = toKebab(rawSlug);
-  await assertFeatureExists(slug);
+  const moduleName = toKebab(rawModule);
+  const page = toKebab(rawPage);
+  await assertPageExists(moduleName, page);
 
   const name = toPascal(rawName);
   const file = toKebab(name);
-  const from = `src/features/${slug}/components`;
-  const to = `src/components/${LAYER_DIRS[layer]}`;
+  const from = `${pageDir(moduleName, page)}/components`;
+  // `--to=module` stops one level up: shared by this module's pages, invisible
+  // to every other module. That is the step the rule of three usually wants
+  // first -- going straight to a global layer shares it with the whole app.
+  const to =
+    layer === 'module'
+      ? `${moduleDir(moduleName)}/components`
+      : `src/components/${LAYER_DIRS[layer]}`;
 
   if (!existsSync(join(ROOT, from, `${file}.tsx`))) {
     fail(`${from}/${file}.tsx not found`);
@@ -824,6 +916,7 @@ async function genPromote(positional, flags) {
   const storyPath = `${to}/${file}.stories.tsx`;
   if (existsSync(join(ROOT, storyPath))) {
     const title = {
+      module: `${toPascal(moduleName)}/Shared`,
       atom: 'Atoms',
       molecule: 'Molecules',
       organism: 'Organisms',
@@ -833,11 +926,12 @@ async function genPromote(positional, flags) {
   }
 
   // 3. rewrite every importer. Relative paths inside the old feature and
-  //    absolute @/features paths elsewhere both have to land on the barrel.
-  const barrel = `@/components/${LAYER_DIRS[layer]}`;
+  //    absolute @/modules paths elsewhere both have to land on the barrel.
+  const barrel =
+    layer === 'module' ? `@/modules/${moduleName}` : `@/components/${LAYER_DIRS[layer]}`;
   const patterns = [
     new RegExp(`'[./]*(?:\\.\\./)*components/${file}'`, 'g'),
-    new RegExp(`'@/features/${slug}/components/${file}'`, 'g'),
+    new RegExp(`'@/modules/${moduleName}/${page}/components/${file}'`, 'g'),
     new RegExp(`'\\./${file}'`, 'g'),
   ];
 
@@ -859,10 +953,10 @@ async function genPromote(positional, flags) {
   }
 
   // 4. publish it from the new layer
-  await addBarrelExport(layer, name);
+  await addBarrelExport(layer, name, moduleName);
 
   console.log(
-    `\n  promoted ${name}: feature "${slug}" -> ${layer} (${rewritten} importer(s) rewritten)`,
+    `\n  promoted ${name}: ${moduleName}/${page} -> ${layer} (${rewritten} importer(s) rewritten)`,
   );
   console.log('  check the component no longer reads domain state -- a shared layer must not.');
   return { name, layer };
@@ -910,21 +1004,24 @@ async function main() {
     console.log(`
   npm run gen -- <generator> [args]
 
-  feature-local:
-    feature   <slug> [--route=/path] [--no-sidebar]
-    component <feature> <ComponentName>
-    hook      <feature> use<Name>
-    page      <feature> <PageName> [--route=/path]
-    mock      <feature> <Entity>     MSW handler + factory, wired into the list
+  a page slice -- src/modules/<module>/<page>/{api,components,hooks,lib,types,constants,validation}:
+    feature   <module> <page> [--route=/path] [--no-sidebar]
+    page      <module> <page> [--route=/path]        (same thing, other name)
+    component <module> <page> <ComponentName>
+    hook      <module> <page> use<Name>
+    mock      <module>-<page> <Entity>   MSW handler + factory, wired into the list
 
-  shared (atomic layers) -- check the registry first:
+  shared by a module's pages -- src/modules/<module>/{components,lib,types}:
+    promote   <module> <page> <ComponentName> --to=module
+
+  shared by everything (atomic layers) -- check the registry first:
     atom      <ComponentName>        props only, no logic
     molecule  <ComponentName>        composes atoms
     organism  <ComponentName>        a section of UI, owns state
     template  <ComponentName>        layout and slots, never fetches
 
   moving one up a layer:
-    promote   <feature> <ComponentName> --to=atom|molecule|organism|template
+    promote   <module> <page> <ComponentName> --to=module|atom|molecule|organism|template
 
   Structure is generated so it is identical every time and migratable later.
   Never hand-create what a generator owns.

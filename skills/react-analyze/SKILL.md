@@ -32,9 +32,9 @@ feature's code. Then check each axis:
 5. **Rule compliance** — each `## Hard rules` line in AGENTS.md, checked:
    ```bash
    npm run components:check   # same component in two features -- exits 1 on a hit
-   grep -rn "as any\|@ts-ignore\|eslint-disable" src/features/<slug>/
-   grep -rn "#[0-9a-fA-F]\{3,8\}\b" src/features/<slug>/        # raw colours
-   grep -rnE ">[A-Z][a-z]+ [a-z]+" src/features/<slug>/ | grep -v "t("  # bare strings
+   grep -rn "as any\|@ts-ignore\|eslint-disable" src/modules/<module>/<page>/
+   grep -rn "#[0-9a-fA-F]\{3,8\}\b" src/modules/<module>/<page>/        # raw colours
+   grep -rnE ">[A-Z][a-z]+ [a-z]+" src/modules/<module>/<page>/ | grep -v "t("  # bare strings
    ```
    **A non-zero `components:check` is a blocker.** It means a component was copied
    into a second feature instead of promoted, so a design change now has to be
@@ -43,10 +43,10 @@ feature's code. Then check each axis:
 6. **Test reality** — does every hook and `api/` module have a test, every
    component a story? Do the tests assert behaviour, or just that something is
    defined?
-7. **Boundaries** — `npx eslint src/features/<slug> --no-eslintrc -c eslint.config.js`
+7. **Boundaries** — `npx eslint src/modules/<module>/<page> --no-eslintrc -c eslint.config.js`
    plus a cross-feature import scan:
    ```bash
-   grep -rn "features/" src/features/<slug>/ | grep -v "features/<slug>"
+   grep -rn "features/" src/modules/<module>/<page>/ | grep -v "features/<slug>"
    ```
 8. **Task honesty** — items ticked in `tasks.md` whose code you cannot find.
 

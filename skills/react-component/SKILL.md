@@ -32,7 +32,7 @@ dependency only then, so reaching for it beats writing one.
 
 | Used by | Where | Command |
 |---|---|---|
-| one feature | `src/features/<slug>/components/` | `npm run gen -- component <slug> <Name>` |
+| one feature | `src/modules/<module>/<page>/components/` | `npm run gen -- component <module> <page> <Name>` |
 | two, and a design change must hit both | the right atomic layer | `npm run gen -- <layer> <Name>` |
 | two, but they would diverge | leave both, `// duplicate-ok: <reason>` in each | — |
 | three or more | the right atomic layer | `npm run gen -- <layer> <Name>` |
@@ -82,7 +82,7 @@ for every string, and all four states on anything async.
 A second feature needs it → promote, do not copy:
 
 ```bash
-npm run gen -- promote <feature> <ComponentName> --to=molecule
+npm run gen -- promote <module> <page> <ComponentName> --to=module
 ```
 
 That moves the component, its test and its story, retitles the story, rewrites

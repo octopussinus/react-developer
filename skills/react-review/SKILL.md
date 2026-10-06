@@ -75,7 +75,7 @@ extremes.
 Each finding, in this shape:
 
 ```markdown
-- [ ] **blocker** `src/features/orders/api/use-orders.ts:34` — the response is
+- [ ] **blocker** `src/modules/orders/api/use-orders.ts:34` — the response is
       applied without checking it is still the current request, so switching
       filter from `paid` to `pending` and back shows `paid` results under the
       `pending` filter whenever the first request resolves last.

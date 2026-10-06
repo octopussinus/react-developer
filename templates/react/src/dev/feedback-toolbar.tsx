@@ -26,6 +26,7 @@
  */
 
 import { mountComponentOverlay } from './component-overlay';
+import { mountSwitchers } from './switchers';
 
 interface Fiber {
   return: Fiber | null;
@@ -256,6 +257,18 @@ export function mountFeedbackToolbar(): void {
       .legend .row:hover { background: #1f2937; }
       .legend .row[data-off="true"] { opacity: .4; text-decoration: line-through; }
       .legend .row i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+      .switch-menu { position: fixed; bottom: 60px; right: 16px; z-index: 2147483647;
+                     width: 190px; padding: 10px; border-radius: 10px; background: #111827;
+                     color: #f9fafb; font: 400 12px system-ui, sans-serif;
+                     box-shadow: 0 10px 30px rgb(0 0 0 / .4); }
+      .switch-menu h3 { margin: 6px 0 4px; font-size: 10px; font-weight: 600;
+                        text-transform: uppercase; letter-spacing: .04em; color: #9ca3af; }
+      .switch-menu h3:first-child { margin-top: 0; }
+      .switch-menu button { display: block; width: 100%; text-align: left; padding: 5px 7px;
+                            background: transparent; color: inherit; font: inherit;
+                            border-radius: 6px; }
+      .switch-menu button:hover { background: #1f2937; }
+      .switch-menu button[data-on="true"] { background: #2563eb; }
       .legend p { margin: 8px 0 0; font-size: 10px; line-height: 1.45; color: #9ca3af; }
     </style>
     <div class="bar">
@@ -505,6 +518,8 @@ export function mountFeedbackToolbar(): void {
     inboxButton.dataset['active'] = String(next);
     if (next) void renderList();
   });
+
+  mountSwitchers(shadow.querySelector('.bar') as HTMLElement, shadow);
 
   (shadow.getElementById('map') as HTMLButtonElement).addEventListener('click', () => {
     void import('./route-map').then((m) => m.openRouteMap());

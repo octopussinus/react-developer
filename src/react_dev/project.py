@@ -158,7 +158,7 @@ REQUIRED_SCRIPTS: tuple[tuple[str, str], ...] = (
     ("lint:rules", "tests for promoted ESLint rules (react-feedback)"),
     ("duplicates", "jscpd"),
     ("i18n:check", "locale parity (react-i18n)"),
-    ("components:check", "component duplication across features (react-analyze)"),
+    ("components:check", "component duplication across modules (react-analyze)"),
     ("build", "the production build -- catches what dev transpiles away"),
     ("gen", "the deterministic generator"),
 )
@@ -182,6 +182,8 @@ REQUIRED_PATHS: tuple[tuple[str, str], ...] = (
     ("tools/component-map-plugin.mjs",
      "the Dev overlay's reused-vs-new endpoint"),
     ("src/dev/component-overlay.tsx", "the Dev overlay itself"),
+    ("src/dev/switchers.tsx", "the theme and language switchers"),
+    ("src/styles/themes.css", "the three themes every project ships"),
     ("scripts/duplicate-components-check.mjs",
      "the components:check gate -- react-analyze runs it"),
     ("src/components/atoms", "atomic layer"),
@@ -361,9 +363,9 @@ def diagnose(project: Path, cli_version: str = "?",
             "eslint-plugin-boundaries wired in",
             "boundaries not enforced - nothing stops cross-feature imports", level="warn")
 
-    add((project / "src" / "features").is_dir() or (project / "app").is_dir(),
-        "feature slices", "src/features/ present",
-        "no src/features/ - code will pile into shared buckets", level="warn")
+    add((project / "src" / "modules").is_dir() or (project / "app").is_dir(),
+        "module slices", "src/modules/ present",
+        "no src/modules/ - code will pile into shared buckets", level="warn")
 
     # --- feedback loop ------------------------------------------------------
     add((project / ".ai").is_dir(), "feedback loop",

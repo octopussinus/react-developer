@@ -55,15 +55,25 @@ export default tseslint.config(
       // Two axes, deliberately:
       //   atomic design (atoms -> molecules -> organisms -> templates) governs
       //     the SHARED presentational layer;
-      //   feature slices govern DOMAIN code.
-      // Atomic design's "pages" layer is a feature's pages/ directory.
+      //   modules govern DOMAIN code, and nest: a module groups pages, a page
+      //     owns its api/components/hooks/validation/...
       // Folder mode (the plugin default): the pattern names the element's
       // FOLDER and every file inside belongs to it. A trailing `/*` would make
       // the pattern match nothing here, leaving the rules silently inert --
       // verify with ESLINT_PLUGIN_BOUNDARIES_DEBUG=1.
+      //
+      // ORDER MATTERS: the first matching element wins. `moduleShared` is listed
+      // before `page` so `modules/orders/components` is module-level shared code
+      // and not mistaken for a page called "components".
       'boundaries/elements': [
         { type: 'app', pattern: 'src/app' },
-        { type: 'feature', pattern: 'src/features/*', capture: ['name'] },
+        {
+          type: 'moduleShared',
+          pattern: 'src/modules/*/(api|components|hooks|lib|types|constants|validation)',
+          capture: ['module'],
+        },
+        { type: 'page', pattern: 'src/modules/*/*', capture: ['module', 'page'] },
+        { type: 'module', pattern: 'src/modules/*', capture: ['module'] },
         { type: 'template', pattern: 'src/components/templates' },
         { type: 'organism', pattern: 'src/components/organisms' },
         { type: 'molecule', pattern: 'src/components/molecules' },
@@ -92,7 +102,9 @@ export default tseslint.config(
             {
               from: 'app',
               allow: [
-                'feature',
+                'module',
+                'moduleShared',
+                'page',
                 'template',
                 'organism',
                 'molecule',
@@ -104,11 +116,46 @@ export default tseslint.config(
               ],
             },
 
-            // A feature may import ITSELF and any shared layer. Never a sibling feature.
             {
-              from: 'feature',
+              // A page owns its own folders and may reach UP to its module's
+              // shared code and to the global layers -- never sideways into
+              // another module, and never into another page.
+              from: 'page',
               allow: [
-                ['feature', { name: '${from.name}' }],
+                ['page', { module: '${from.module}', page: '${from.page}' }],
+                ['moduleShared', { module: '${from.module}' }],
+                ['module', { module: '${from.module}' }],
+                'template',
+                'organism',
+                'molecule',
+                'atom',
+                'lib',
+                'config',
+                'types',
+              ],
+            },
+            {
+              // Module-shared code is shared by that module's pages, so it must
+              // not depend on any one of them -- that would make the shared
+              // thing un-shareable the moment a page changes.
+              from: 'moduleShared',
+              allow: [
+                ['moduleShared', { module: '${from.module}' }],
+                'template',
+                'organism',
+                'molecule',
+                'atom',
+                'lib',
+                'config',
+                'types',
+              ],
+            },
+            {
+              from: 'module',
+              allow: [
+                ['module', { module: '${from.module}' }],
+                ['moduleShared', { module: '${from.module}' }],
+                ['page', { module: '${from.module}' }],
                 'template',
                 'organism',
                 'molecule',
@@ -130,13 +177,15 @@ export default tseslint.config(
             { from: 'config', allow: ['config', 'lib', 'types'] },
             { from: 'dev', allow: ['atom', 'molecule', 'lib', 'config', 'types'] },
             {
-              // `feature` is allowed on purpose: a mock factory builds a
-              // feature's entity, so test-support code must import its type.
-              // That is what test infrastructure is, not a layering violation.
-              // Prefer the generated API type once a contract exists.
+              // `page`/`moduleShared` are allowed on purpose: a mock factory
+              // builds a page's entity, so test-support code must import its
+              // type. That is what test infrastructure is, not a layering
+              // violation. Prefer the generated API type once a contract exists.
               from: 'testing',
               allow: [
-                'feature',
+                'page',
+                'moduleShared',
+                'module',
                 'template',
                 'organism',
                 'molecule',
@@ -150,13 +199,13 @@ export default tseslint.config(
           ],
         },
       ],
-      // A feature's index.ts is its only public surface.
+      // A page's index.ts is its only public surface, and so is a module's.
       'boundaries/entry-point': [
         'error',
         {
           default: 'disallow',
           rules: [
-            { target: ['feature'], allow: 'index.ts' },
+            { target: ['page', 'module', 'moduleShared'], allow: 'index.ts' },
             // Shared layers are imported through their barrel, so a layer can be
             // reorganised internally without touching every call site.
             {
@@ -191,12 +240,13 @@ export default tseslint.config(
         {
           patterns: [
             {
-              // Relative imports WITHIN a feature are correct and expected.
-              // Reaching three levels up is not; cross-layer and cross-feature
-              // reach is caught by boundaries/* instead.
+              // Relative imports WITHIN a page, or up to its module's shared
+              // folders, are correct and expected. Three levels up leaves the
+              // module entirely; cross-module reach is caught by boundaries/*.
               group: ['../../../*'],
               message:
-                'Too deep. Use the @/ alias, or move the shared code into components/ or lib/.',
+                'Too deep — that leaves the module. Use the @/ alias, or move the shared code ' +
+                "into the module's components/ or lib/.",
             },
           ],
         },

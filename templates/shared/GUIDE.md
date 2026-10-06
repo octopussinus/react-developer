@@ -46,7 +46,7 @@ You will see a near-empty page. That is correct: there is no demo content.
 AGENTS.md              your rules — every agent reads this (CLAUDE.md, GEMINI.md link to it)
 .agents/skills/        the 12 workflow skills
 src/components/        atoms → molecules → organisms → templates
-src/features/          empty. your code goes here, one folder per feature
+src/modules/           empty. your code: modules/<module>/<page>/
 src/lib/               api client, query client, theme, cn
 specs/                 one folder per feature: spec, tasks, review
 .ai/                   the feedback loop
@@ -261,9 +261,9 @@ Creates branch `001-order-tracking`, folder `specs/001-order-tracking/`, and run
 the generator. Expect to see roughly:
 
 ```
-create   src/features/order-tracking/api/use-order-tracking-list.ts
-create   src/features/order-tracking/pages/order-tracking-page.tsx
-create   src/features/order-tracking/index.ts
+create   src/modules/order-tracking/api/use-order-tracking-list.ts
+create   src/modules/order-tracking/pages/order-tracking-page.tsx
+create   src/modules/order-tracking/index.ts
 create   src/locales/{en,pl}/order-tracking.json
 modify   src/config/routes.ts
 ```
@@ -516,7 +516,7 @@ the layer, then generates. Or do it yourself:
 
 ```bash
 # used by ONE feature -- start here when unsure
-npm run gen -- component orders OrderCard
+npm run gen -- component orders list OrderCard
 
 # used by TWO or more -- a shared atomic layer
 npm run gen -- atom     Chip
@@ -545,14 +545,14 @@ reusable its markup looks.
 A second feature needs it? **Promote it, never copy it:**
 
 ```bash
-npm run gen -- promote orders OrderCard --to=molecule
+npm run gen -- promote orders list OrderCard --to=module
 ```
 
 ```
-move     src/features/orders/components/order-card.tsx -> src/components/molecules/order-card.tsx
+move     src/modules/orders/components/order-card.tsx -> src/components/molecules/order-card.tsx
 move     order-card.test.tsx, order-card.stories.tsx
 modify   order-card.stories.tsx          # title: Orders/OrderCard -> Molecules/OrderCard
-rewrite  src/features/orders/pages/orders-page.tsx   # -> '@/components/molecules'
+rewrite  src/modules/orders/pages/orders-page.tsx   # -> '@/components/molecules'
 modify   src/components/molecules/index.ts
 ```
 
@@ -595,7 +595,7 @@ future `shadcn add` breaks.
 
 ### Mock data — build the whole frontend with no backend
 
-`npm run gen -- feature orders` already wrote an MSW handler and a factory and
+`npm run gen -- feature orders list` already wrote an MSW handler and a factory and
 registered them. `npm run dev` therefore shows **realistic data immediately**,
 before any API exists.
 
@@ -637,7 +637,7 @@ The generated api test already does this for success, 500 and empty.
 **Another entity in the same feature:**
 
 ```bash
-npm run gen -- mock orders Invoice
+npm run gen -- mock orders-list Invoice
 ```
 
 **Switch mocks off** once an API is reachable: `VITE_ENABLE_MOCKS=false` in
@@ -698,7 +698,7 @@ Molecules/FormField  Default · WithHint · WithError · Disabled
 Molecules/States     Loading · Empty · Error
 ```
 
-**You rarely write a story by hand.** `npm run gen -- component <feature> <Name>`
+**You rarely write a story by hand.** `npm run gen -- component <module> <page> <Name>`
 writes one next to the component:
 
 ```tsx
@@ -829,7 +829,7 @@ Run `sync` first — it clears the skill and version rows. Whatever remains is
 **template** drift, and the fix is manual:
 
 - **Few gaps:** copy the missing surface across from a freshly generated project.
-- **Many gaps:** generate a new project and move your `src/features/*` into it.
+- **Many gaps:** generate a new project and move your `src/modules/*/*` into it.
   The boundary lint rules will tell you exactly where each piece is allowed to
   live, so this is more mechanical than it sounds.
 

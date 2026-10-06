@@ -27,7 +27,7 @@ then pick **what you want** — optionally with a note — and an entry lands he
   "ts": "2026-10-02T14:36:09Z",
   "intent": "reuse",
   "comment": "the invoices page needs this same heading",
-  "file": "src/features/orders/components/OrderCard.tsx",
+  "file": "src/modules/orders/components/OrderCard.tsx",
   "line": 42,
   "component": "OrderCard",
   "selector": "div.order-card > span:nth-child(2)",

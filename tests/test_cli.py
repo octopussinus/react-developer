@@ -318,7 +318,7 @@ def test_sync_with_template_adds_missing_files_without_overwriting(made: Path, m
     edited = made / "src" / "components" / "atoms" / "button.tsx"
     edited.write_text("// my own button\nexport const Button = () => null;\n", encoding="utf-8")
     # ...and a file only they have.
-    mine = made / "src" / "features" / "mine.ts"
+    mine = made / "src" / "modules" / "mine.ts"
     mine.write_text("export const mine = 1;\n", encoding="utf-8")
 
     result = runner.invoke(app, ["sync", str(made), "--with-template"])
@@ -743,7 +743,7 @@ def test_next_blocks_name_a_real_skill_or_command():
             )
 
 
-def test_generator_output_is_prettier_clean_for_a_long_feature_name(tmp_path):
+def test_generator_output_is_prettier_clean_for_a_long_page_name(tmp_path):
     """`gen -- feature <name>` must pass format:check whatever the name is.
 
     Templates are hand-written strings, so whether a line fits printWidth depends
@@ -767,7 +767,7 @@ def test_generator_output_is_prettier_clean_for_a_long_feature_name(tmp_path):
     (project / "node_modules").symlink_to(deps, target_is_directory=True)
 
     gen = subprocess.run(
-        ["node", "tools/gen/index.mjs", "feature", "notifications"],
+        ["node", "tools/gen/index.mjs", "feature", "alerts", "notifications"],
         cwd=project, capture_output=True, text=True, timeout=180,
     )
     assert gen.returncode == 0, f"{gen.stdout}\n{gen.stderr}"
@@ -808,13 +808,13 @@ def test_duplicate_components_check_fails_on_a_copy_and_passes_on_an_opt_out(tmp
 
     script = REPO_ROOT / "templates" / "react" / "scripts" / "duplicate-components-check.mjs"
     project = tmp_path / "app"
-    for feature in ("orders", "invoices"):
-        (project / "src" / "features" / feature / "components").mkdir(parents=True)
+    for page in ("list", "detail"):
+        (project / "src" / "modules" / "orders" / page / "components").mkdir(parents=True)
     (project / "scripts").mkdir()
 
     body = "export function StatusBadge() {\n  return null;\n}\n"
-    orders = project / "src/features/orders/components/status-badge.tsx"
-    invoices = project / "src/features/invoices/components/status-badge.tsx"
+    orders = project / "src/modules/orders/list/components/status-badge.tsx"
+    invoices = project / "src/modules/orders/detail/components/status-badge.tsx"
 
     def run():
         return subprocess.run(["node", str(script)], cwd=project,
@@ -842,8 +842,8 @@ def test_duplicate_components_check_fails_on_a_copy_and_passes_on_an_opt_out(tmp
     assert run().returncode == 0
 
     # Tests and stories share the component's name by design, never a finding.
-    (project / "src/features/orders/components/status-badge.test.tsx").write_text(body)
-    (project / "src/features/invoices/components/status-badge.test.tsx").write_text(body)
+    (project / "src/modules/orders/list/components/status-badge.test.tsx").write_text(body)
+    (project / "src/modules/orders/detail/components/status-badge.test.tsx").write_text(body)
     assert run().returncode == 0
 
     # Two copies must NOT lead with promote -- the rule of three and AHA both say
@@ -856,7 +856,7 @@ def test_duplicate_components_check_fails_on_a_copy_and_passes_on_an_opt_out(tmp
     assert "must they change together" in two.stderr
 
     # Three copies: now it says promote, because the evidence is in.
-    third = project / "src/features/payments/components"
+    third = project / "src/modules/orders/archive/components"
     third.mkdir(parents=True)
     (third / "status-badge.tsx").write_text(body)
     three = run()
@@ -1057,7 +1057,7 @@ def test_react_publish_skill_refuses_single_project_components():
     """The skill's whole job is to be the hard step; a soft one is just a copy."""
     body = (REPO_ROOT / "skills" / "react-publish" / "SKILL.md").read_text()
     assert "NEVER publish a component used by only one project." in body
-    assert "@/features" in body, "must check the component imports no feature"
+    assert "@/modules" in body, "must check the component imports no module code"
     assert "npm run gen --" in body, "must call the generator, not hand-edit registry.json"
 
 
@@ -1152,3 +1152,101 @@ def test_route_graph_is_static_analysis_not_a_model():
         "both are dev-only; the map must never ship to production"
     )
     assert "@xyflow/react" not in pkg.get("dependencies", {})
+
+
+def test_every_project_ships_three_themes_and_two_locales():
+    """Generated whether or not the design asks for them.
+
+    A second theme is the cheapest proof that nothing hardcodes a colour or a
+    radius; a second locale is the same proof for text. Finding out from a
+    rebrand instead of from the switcher is the failure these prevent.
+    """
+    template = REPO_ROOT / "templates" / "react"
+
+    themes = (template / "src/styles/themes.css").read_text()
+    for name in ("ocean", "sunset"):
+        assert f":root[data-theme='{name}']" in themes, f"{name} missing"
+        assert f":root[data-theme='{name}'].dark" in themes, f"{name} has no dark variant"
+    # `:root[...]` not `[...]`: equal specificity with :root, and @import must
+    # come first, so the plain form silently changed nothing in light mode.
+    assert "\n[data-theme=" not in themes
+
+    theme_ts = (template / "src/lib/theme.ts").read_text()
+    assert "'default', 'ocean', 'sunset'" in theme_ts
+
+    i18n = (template / "src/config/i18n.ts").read_text()
+    assert "en:" in i18n and "pl:" in i18n
+    # The locale must reach <html lang>, or a Polish page claims to be English.
+    assert "document.documentElement.lang" in i18n
+
+    for locale in ("en", "pl"):
+        assert (template / "src/locales" / locale).is_dir()
+
+
+def test_a_theme_changes_shape_not_only_colour():
+    """Same radius, border and weight means the same app in a different hue."""
+    template = REPO_ROOT / "templates" / "react"
+    base = (template / "src/styles/index.css").read_text()
+    themes = (template / "src/styles/themes.css").read_text()
+
+    for token in ("--ui-border-width", "--ui-font-weight", "--ui-shadow"):
+        assert token in base, f"{token} is not declared on :root"
+        assert token in themes, f"no theme overrides {token}"
+
+    # And a component must actually consume them, or the tokens change nothing.
+    button = (template / "src/components/atoms/button.tsx").read_text()
+    assert "--ui-font-weight" in button and "--ui-shadow" in button
+    assert "--ui-border-width" in button
+
+
+def test_dev_toolbar_can_switch_theme_and_language():
+    switchers = (REPO_ROOT / "templates/react/src/dev/switchers.tsx").read_text()
+    assert "setName" in switchers and "changeLanguage" in switchers
+    # The locale list comes from the project, not i18next's runtime options,
+    # where `supportedLngs` is `false` unless set and carries `cimode`.
+    assert "from '@/config/i18n'" in switchers and "locales" in switchers
+
+    toolbar = (REPO_ROOT / "templates/react/src/dev/feedback-toolbar.tsx").read_text()
+    assert "mountSwitchers" in toolbar
+
+
+def test_each_theme_overrides_the_same_colour_tokens_in_light_and_dark():
+    """A token set in a theme's light block MUST also be set in its dark block.
+
+    `:root[data-theme=x]` (0,2,0) outranks `.dark` (0,1,0), so a colour the theme
+    sets only in light leaks into dark mode. Verified in a browser: a probe theme
+    overriding `--card` in light alone showed that light value with `.dark` on.
+
+    The specificity is deliberate -- `@import` must come first, so without it the
+    themes lose to `:root` on source order and change nothing. Lowering `.dark`
+    to `:root.dark` instead would outrank the `cssVars` that shadcn registry
+    items inject, so the rule is enforced here instead of restructured away.
+
+    Shape tokens are exempt: a radius or a border width is a property of the
+    theme, not of the colour scheme, and repeating it in both blocks is noise.
+    """
+    import re
+
+    css = (REPO_ROOT / "templates/react/src/styles/themes.css").read_text()
+    scheme_independent = {"--radius", "--ui-border-width", "--ui-font-weight", "--ui-shadow"}
+
+    blocks: dict[tuple[str, str], set[str]] = {}
+    for match in re.finditer(
+        r":root\[data-theme='([^']+)'\](\.dark)?\s*\{(.*?)\}", css, re.S
+    ):
+        name, dark, body = match.group(1), bool(match.group(2)), match.group(3)
+        tokens = set(re.findall(r"(--[\w-]+)\s*:", body))
+        blocks[(name, "dark" if dark else "light")] = tokens
+
+    names = {name for name, _ in blocks}
+    assert names, "no themes found"
+
+    for name in names:
+        light = blocks.get((name, "light"), set()) - scheme_independent
+        dark = blocks.get((name, "dark"), set()) - scheme_independent
+        assert light == dark, (
+            f"theme {name!r}: light and dark override different tokens.\n"
+            f"  only in light: {sorted(light - dark)}\n"
+            f"  only in dark:  {sorted(dark - light)}\n"
+            "A token set only in light leaks that value into dark mode."
+        )

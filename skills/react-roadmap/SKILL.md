@@ -30,7 +30,7 @@ the first third produces overlapping features.
 So you never propose something already built:
 
 ```bash
-ls src/features/ specs/ src/components/*/ src/testing/mocks/handlers/ 2>/dev/null
+ls src/modules/ specs/ src/components/*/ src/testing/mocks/handlers/ 2>/dev/null
 cat src/config/routes.ts && ls src/lib/api/generated 2>/dev/null
 ```
 

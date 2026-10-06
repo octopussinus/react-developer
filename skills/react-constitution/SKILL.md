@@ -24,7 +24,7 @@ nobody reads is not a rule.
    and are owned by `react-feedback`, not by you.
 2. Detect reality before writing it down. Do not assume:
    - `cat package.json` — framework, scripts, state/data/validation libraries
-   - `ls src/` — is it feature-sliced (`src/features/`) or type-sliced?
+   - `ls src/` — is it feature-sliced (`src/modules/`) or type-sliced?
    - `ls eslint.config.*` — are boundaries actually enforced?
    - `ls .env.example openapi.json 2>/dev/null` — is there a typed API contract?
 3. Write the sections below. Every rule must be **testable or checkable**.
@@ -51,7 +51,7 @@ These exist because they are the failure modes this workflow is built to stop:
 
 - NEVER hand-write an API response type. Generate it. If a field is missing from
   the contract, STOP and report it — do not invent fields.
-- NEVER create feature folders by hand. Run `npm run gen -- feature <name>`.
+- NEVER create feature folders by hand. Run `npm run gen -- feature <module> <page>`.
 - NEVER import from another feature. Shared code graduates to `components/ui`
   or `lib`.
 - NEVER use `any`, `as any`, `@ts-ignore`, or add `eslint-disable` without an

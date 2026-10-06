@@ -58,7 +58,7 @@ whether the shared component stays usable or becomes a props soup.
 ### 4. Promote, never copy
 
 ```bash
-npm run gen -- promote <feature> <ComponentName> --to=<layer>
+npm run gen -- promote <module> <page> <ComponentName> --to=<module|layer>
 ```
 
 That moves the component, its test and its story, retitles the story, rewrites

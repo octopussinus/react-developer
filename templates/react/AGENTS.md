@@ -11,26 +11,31 @@ Playwright + axe · Storybook 10 · Stryker
 
 ## Architecture — two axes, both enforced by `eslint-plugin-boundaries`
 
-**Atomic design governs shared presentation. Feature slices govern domain code.**
+**Atomic design governs shared presentation. Modules and pages govern domain code.**
 
 ```
 src/components/atoms/        Button, Input, Badge, Skeleton   — props only, zero logic
 src/components/molecules/    FormField, EmptyState, ErrorState — composed atoms
 src/components/organisms/    SidebarNav                        — a section of UI
 src/components/templates/    AppShell                          — layout, slots, NO data
-src/features/<slug>/         api · components · hooks · pages · types · index.ts
+src/modules/<module>/                shared by that module's pages: components · lib · types
+src/modules/<module>/<page>/         api · components · hooks · lib · types · constants · validation
+                                     plus <page>-page.tsx and index.ts
 ```
 
 - **Atomic flow is strictly downward:** atoms → molecules → organisms → templates.
   An atom may not import a molecule. Atoms may only import `lib` and `types`.
-- **Atomic "pages" = a feature's `pages/`.** That is where real data meets a template.
-- **Features never import each other.** Shared code graduates into
-  `components/{atoms,molecules,…}` or `lib` — promote it, never copy it.
-- **A feature's `index.ts` is its only public surface.** Deep imports fail lint.
-- Import direction overall: `app → features → templates → organisms → molecules → atoms → lib`.
+- **A page owns its slice.** It may reach UP to its own module's shared folders
+  and to the global layers — never sideways into another module or page.
+- **Module shared code may not import a page.** It stops being shareable the
+  moment that page changes.
+- **`index.ts` is the only public surface**, for a page and for a module alike.
+  Deep imports fail lint.
+- Import direction: `app → module → page → templates → organisms → molecules → atoms → lib`.
 
-Decide placement by reuse: used by one feature → inside that feature; used by
-two or more → promote it to the right atomic layer.
+Decide placement by reuse, one step at a time: one page → inside that page; two
+pages of one module → `modules/<module>/components`; two modules → an atomic
+layer. Promote, never copy — `npm run gen -- promote`.
 
 ## Commands
 

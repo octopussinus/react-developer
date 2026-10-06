@@ -56,7 +56,7 @@ it and stop. Detail: [references/intents.md](references/intents.md).
    routed above; only `fix` entries continue here.
 2. **Record.** Append each to `.ai/feedback.md`:
    ```markdown
-   ## 2026-10-01 · orders · src/features/orders/components/OrderCard.tsx:42
+   ## 2026-10-01 · orders · src/modules/orders/components/OrderCard.tsx:42
    **Category:** design-tokens
    **Said:** "status badge is a raw hex, use the token"
    **Correct:** `bg-status-warning` from @theme

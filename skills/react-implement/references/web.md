@@ -3,7 +3,7 @@
 ## Where code goes
 
 ```
-src/features/<slug>/
+src/modules/<module>/<page>/
 ├── api/          # one file per operation: getOrders.ts, updateOrder.ts
 ├── components/   # owned by this feature; <Name>.tsx + .test.tsx + .stories.tsx
 ├── hooks/
@@ -19,7 +19,7 @@ src/features/<slug>/
 Queries live in `api/`, keyed by a factory so invalidation is never a guess:
 
 ```ts
-// src/features/orders/api/getOrders.ts
+// src/modules/orders/api/getOrders.ts
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 // A second backend: `apiFor('auth')`, declared in VITE_API_URLS. Never raw fetch.
@@ -85,7 +85,7 @@ permission check all read one source:
 ```ts
 {
   path: '/orders/:id',
-  lazy: () => import('@/features/orders/pages/OrderDetail'),
+  lazy: () => import('@/modules/orders/pages/OrderDetail'),
   meta: {
     titleKey: 'orders.detail.title',
     permission: 'orders:read',

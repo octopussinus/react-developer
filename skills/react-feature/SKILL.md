@@ -41,7 +41,7 @@ generator already produces.
    STOP and ask — never stash someone else's work.
 4. **Scaffold.** Run the generator and show its output verbatim:
    ```bash
-   npm run gen -- feature <slug> --route=/<slug>
+   npm run gen -- feature <module> <page> --route=/<path>
    ```
    If it fails, report the failure. Do not fall back to creating files by hand —
    a hand-made feature is one the upgrade path can never migrate.

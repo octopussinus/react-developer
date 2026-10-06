@@ -11,7 +11,7 @@ candidate, never a finding.
 ## 1. An effect that should not be an effect
 
 ```bash
-grep -rn "useEffect" src/features/<slug>/ src/components/
+grep -rn "useEffect" src/modules/<module>/<page>/ src/components/
 ```
 
 `exhaustive-deps` checks that an effect's dependencies are *complete*. It cannot
@@ -22,7 +22,7 @@ tell you the effect should not exist. Three shapes, all wrong:
   frame where the value is stale.
 - **Syncing a prop into state.** `useEffect(() => setValue(props.value), [props.value])`
   — the component now has two sources of truth that disagree for one frame.
-- **Fetching.** This project has a data layer (`src/features/*/api/`). A `useEffect`
+- **Fetching.** This project has a data layer (`src/modules/*/*/api/`). A `useEffect`
   that fetches is bypassing cancellation, caching and error handling that already
   exist.
 
@@ -45,7 +45,7 @@ change, or does it read through a ref? If neither, name the value that goes stal
 
 ```bash
 grep -rn "key={\(i\|idx\|index\)}" src/
-grep -rn "\.map(" src/features/<slug>/
+grep -rn "\.map(" src/modules/<module>/<page>/
 ```
 
 No rule knows whether a list reorders. An index key on a list that sorts, filters
@@ -58,7 +58,7 @@ middle? Is there a stable `id`? Index keys are fine only for a static list.
 ## 4. State that duplicates derivable data
 
 ```bash
-grep -rn "useState" src/features/<slug>/
+grep -rn "useState" src/modules/<module>/<page>/
 ```
 
 **Decide:** for each piece of state, can it be computed from props, other state,
@@ -67,7 +67,7 @@ or the server data? Two sources of truth eventually disagree — say when.
 ## 5. Async that is never cancelled, or applied out of order
 
 ```bash
-grep -rn "await \|\.then(" src/features/<slug>/
+grep -rn "await \|\.then(" src/modules/<module>/<page>/
 ```
 
 Two requests in flight resolve in whatever order the network chooses. Without a
@@ -116,7 +116,7 @@ worth the most attention.
 ## 9. What the UI does when the request throws
 
 ```bash
-grep -rn "catch\|isError\|error" src/features/<slug>/
+grep -rn "catch\|isError\|error" src/modules/<module>/<page>/
 ```
 
 The spec names an error state; `react-analyze` checks one exists. This checks it

@@ -24,6 +24,8 @@ import { promisify } from 'node:util';
 
 const run = promisify(execFile);
 const LAYERS = ['atoms', 'molecules', 'organisms', 'templates'];
+/** Folder names a module owns itself; any other folder under it is a page. */
+const RESERVED = new Set(['api', 'components', 'hooks', 'lib', 'types', 'constants', 'validation']);
 const BASES = ['main', 'master'];
 
 function isComponent(name) {
@@ -133,12 +135,16 @@ export function componentMapPlugin() {
               }
             }
 
-            const featuresDir = join(root, 'src/features');
-            if (existsSync(featuresDir)) {
-              for (const entry of await readdir(featuresDir, { withFileTypes: true })) {
+            const modulesDir = join(root, 'src/modules');
+            if (existsSync(modulesDir)) {
+              for (const entry of await readdir(modulesDir, { withFileTypes: true })) {
                 if (!entry.isDirectory()) continue;
-                for (const absolute of await walk(join(featuresDir, entry.name))) {
-                  add(absolute, 'feature', entry.name);
+                for (const absolute of await walk(join(modulesDir, entry.name))) {
+                  const rel = relative(root, absolute).split('\\').join('/');
+                  const owner = ownerOf(rel) ?? entry.name;
+                  // A page's component is scoped to that page; a module's is
+                  // shared by its pages, which is a different kind of "not global".
+                  add(absolute, owner.includes('/') ? 'feature' : 'moduleShared', owner);
                 }
               }
             }

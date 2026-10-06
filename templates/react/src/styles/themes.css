@@ -1,0 +1,82 @@
+/*
+ * Named themes, on top of the base tokens in index.css.
+ *
+ * Every project ships with THREE, whether or not the design asked for them.
+ * Two reasons: a second theme is the cheapest possible proof that nothing
+ * hardcodes a colour (the one thing a token system exists to prevent), and
+ * adding the third one later means revisiting every component instead of
+ * one file.
+ *
+ * `default` is `:root` / `.dark` in index.css. These two override only what
+ * actually MAKES a theme different: the brand colours AND the shape tokens --
+ * radius, border width, font weight, elevation. Colour alone is not a theme;
+ * with the same shape every variant still looks like the same app in a
+ * different hue. Copying all 34 variables per theme would mean four places to
+ * change whenever a neutral moves, and they would drift apart within a month.
+ *
+ * The chart palette is deliberately NOT overridden: it is validated for
+ * colourblind separation and contrast, and re-picking it per theme throws that
+ * away. A theme that genuinely needs different chart hues must re-run the
+ * validator -- see the dataviz guidance, not a hand-picked set.
+ *
+ * Selectors are `:root[data-theme=…]`, not `[data-theme=…]`. An attribute
+ * selector and `:root` have EQUAL specificity, and `@import` has to come first
+ * in the file — so the plain form lost to `:root` on source order and silently
+ * changed nothing in light mode. `:root[…]` outranks it regardless of order.
+ *
+ * Switch with the Theme button in the dev toolbar, or `useTheme().setName()`.
+ */
+
+/* --- Ocean: flat, tight, understated ----------------------------------- */
+:root[data-theme='ocean'] {
+  --primary: oklch(0.55 0.13 220);
+  --primary-foreground: oklch(0.99 0 0);
+  --accent: oklch(0.95 0.02 220);
+  --accent-foreground: oklch(0.3 0.06 220);
+  --ring: oklch(0.55 0.13 220);
+  --sidebar-primary: oklch(0.55 0.13 220);
+  --sidebar-ring: oklch(0.55 0.13 220);
+
+  /* Flat and tight: square-ish corners, no elevation, lighter type. */
+  --radius: 0.25rem;
+  --ui-border-width: 1px;
+  --ui-font-weight: 450;
+  --ui-shadow: none;
+}
+
+:root[data-theme='ocean'].dark {
+  --primary: oklch(0.74 0.11 220);
+  --primary-foreground: oklch(0.18 0.03 220);
+  --accent: oklch(0.3 0.04 220);
+  --accent-foreground: oklch(0.95 0.01 220);
+  --ring: oklch(0.74 0.11 220);
+  --sidebar-primary: oklch(0.74 0.11 220);
+  --sidebar-ring: oklch(0.74 0.11 220);
+}
+
+/* --- Sunset: soft, rounded, raised ------------------------------------- */
+:root[data-theme='sunset'] {
+  --primary: oklch(0.6 0.17 35);
+  --primary-foreground: oklch(0.99 0 0);
+  --accent: oklch(0.96 0.03 60);
+  --accent-foreground: oklch(0.32 0.08 40);
+  --ring: oklch(0.6 0.17 35);
+  --sidebar-primary: oklch(0.6 0.17 35);
+  --sidebar-ring: oklch(0.6 0.17 35);
+
+  /* Soft and raised: pill-ish corners, visible elevation, heavier type. */
+  --radius: 1rem;
+  --ui-border-width: 2px;
+  --ui-font-weight: 650;
+  --ui-shadow: 0 2px 8px -1px rgb(0 0 0 / 0.18);
+}
+
+:root[data-theme='sunset'].dark {
+  --primary: oklch(0.76 0.14 45);
+  --primary-foreground: oklch(0.2 0.05 40);
+  --accent: oklch(0.32 0.05 45);
+  --accent-foreground: oklch(0.96 0.02 60);
+  --ring: oklch(0.76 0.14 45);
+  --sidebar-primary: oklch(0.76 0.14 45);
+  --sidebar-ring: oklch(0.76 0.14 45);
+}

@@ -14,8 +14,8 @@ ladder**, because a registry item is a public API: every consumer inherits its
 bugs, and you cannot un-ship one.
 
 ```
-feature-local  ->  shared atomic layer  ->  registry
-  (one feature)    (two features, gen -- promote)   (two PROJECTS, here)
+page  ->  module  ->  atomic layer  ->  registry
+ (one page)  (two pages)  (two modules)   (two PROJECTS, here)
 ```
 
 ## Refuse unless all four hold
@@ -32,7 +32,7 @@ why and what would have to change.
 
 Two more that are cheap and worth stating:
 
-- **No feature imports.** `grep -n "@/features" <file>` must be empty. A shared
+- **No feature imports.** `grep -n "@/modules" <file>` must be empty. A shared
   layer cannot import a feature, and the consumer has different features anyway.
 - **Has a story and a test.** They ship with the item. An item without them
   arrives as code nobody can see in isolation or trust.
@@ -77,7 +77,7 @@ Two more that are cheap and worth stating:
 - NEVER hand-edit `registry.json`. The generator owns it; a missing `target`
   installs into the wrong atomic layer of someone else's project.
 - NEVER publish with a hardcoded colour, radius or font size.
-- NEVER publish a component that imports from `@/features`.
+- NEVER publish a component that imports from `@/modules`.
 - NEVER leave the `TODO` description or `meta.why` in place.
 - NEVER rename or remove a published item to "fix" it — consumers have installed
   it. Change the source in `registry/items/` and rebuild.

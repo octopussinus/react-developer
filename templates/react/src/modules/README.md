@@ -1,22 +1,38 @@
-# `src/features/`
+# `src/modules/`
 
-Empty on purpose. A new project ships no demo feature — the first thing in here
-should be yours.
+Domain code, nested two levels:
 
-```bash
-npm run gen -- feature orders --route=/orders
+```
+modules/<module>/            a group of related pages
+  components/ lib/ types/    shared by THIS module's pages only
+  <page>/                    one page, and everything it owns
+    index.ts                 its public surface
+    <page>-page.tsx          the page component
+    api/ components/ hooks/
+    lib/ types/ constants/ validation/
 ```
 
-That creates `orders/{api,components,hooks,pages,types}` with a barrel, a test,
-a story, a route entry and a locale namespace in every language — identically
-every time. Never create these folders by hand; generated code has a known
-shape, which is what lets `react-dev sync` migrate it later.
+Three levels of sharing, and the rules enforce the direction:
 
-## The two rules
+| Something is needed by  | It belongs in                        |
+| ----------------------- | ------------------------------------ |
+| one page                | that page's own folder               |
+| two pages of one module | `modules/<module>/components` (etc.) |
+| two modules             | an atomic layer in `src/components/` |
 
-1. **A feature never imports another feature.** Shared code graduates into
-   `src/components/{atoms,molecules,organisms,templates}` or `src/lib`.
-2. **`index.ts` is the only public surface.** Deep imports fail `npm run lint`.
+A page may import its own module's shared code and the global layers. It may
+**not** import another module, another page, or reach sideways — and module
+shared code may not import a page, or it stops being shareable the moment that
+page changes.
 
-Both are enforced by `eslint-plugin-boundaries`, and
-`src/testing/architecture.test.ts` proves the enforcement still works.
+`eslint-plugin-boundaries` enforces every line of that, and
+`src/testing/architecture.test.ts` proves the rules are not silently inert.
+
+Generate, never hand-create:
+
+```bash
+npm run gen -- feature <module> <page> --route=/path
+npm run gen -- component <module> <page> <Name>
+npm run gen -- hook <module> <page> use<Name>
+npm run gen -- promote <module> <page> <Name> --to=module
+```

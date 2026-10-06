@@ -22,9 +22,9 @@ Call the generator for every new unit. It is not a convenience — it is what
 keeps 50 agent-written features structurally identical and migratable:
 
 ```bash
-npm run gen -- feature   <slug> --route=/<path>   # also writes its MSW mocks
-npm run gen -- component <slug> <ComponentName>
-npm run gen -- hook      <slug> use<Name>
+npm run gen -- feature   <module> <page> --route=/<path>   # also writes its MSW mocks
+npm run gen -- component <module> <page> <ComponentName>
+npm run gen -- hook      <module> <page> use<Name>
 npm run gen -- page      <slug> <PageName> --route=/<path>
 npm run gen -- mock      <slug> <Entity>          # another entity's handler + factory
 ```

@@ -12,6 +12,27 @@ Tokens live in one place and both platforms read them. Components reference
 roles, never raw values — which is what makes dark mode and rebranding a
 one-file change instead of a sweep through 200 components.
 
+## Every project ships three themes and two locales
+
+Not one. `src/styles/themes.css` already carries `default`, `ocean` and
+`sunset`, and `src/config/i18n.ts` carries `en` + `pl` — **whether or not the
+design mentions either**.
+
+That is deliberate. A second theme is the cheapest possible proof that nothing
+hardcodes a colour or a radius, which is the one thing a token system exists to
+prevent; you find out from the switcher in ten seconds instead of from a
+rebrand in three weeks. Two locales do the same for text: a layout that only
+survives English is a layout nobody tested.
+
+**Replace them, do not delete them.** When a design arrives — from Stitch or
+from the user — rename and restyle the three to match that product rather than
+dropping to one. If Stitch supplied only one palette, invent two honest
+alternatives for *this* app: a flatter one and a softer one, not two random
+hues.
+
+Full rules — which tokens a theme may override, the selector trap, and why the
+chart palette is off limits: [references/themes.md](references/themes.md).
+
 ## Token model
 
 Two layers, and the distinction is the whole point:

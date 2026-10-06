@@ -509,6 +509,31 @@ That does exactly the same thing and works today on your own machine. Ask the
 assistant to publish the registry if you want the short form; it needs the
 project's code hosting set up once.
 
+## Switching theme and language while you work
+
+Two more buttons sit to the left of **Feedback**:
+
+**The theme button** shows what is active, like `Default · system`. Click it for
+a menu with **three themes** and light/dark/system. The themes are not just
+different colours — buttons and inputs genuinely change shape: corners,
+thickness, weight, shadow. Flipping between them is the fastest way to catch
+anything with a colour or a corner radius baked in instead of taken from the
+design tokens.
+
+**The language button** shows `EN` or `PL` and toggles between them. Your project
+always has both, even when the design shows only one, because a layout that only
+survives English is a layout nobody tested — German and Polish words are longer
+and break things.
+
+Both are developer tools, not part of your site. If your design wants a real
+theme or language picker for your users, ask for one; these two keep working
+either way.
+
+Every project starts with three themes and two languages whether or not the
+design mentions them. If you have a design, ask the assistant to reshape the
+three to match it — **do not drop to one**. The spare themes cost nothing and
+they are what catches a hardcoded colour early.
+
 ## Three more things worth knowing
 
 ### Storybook — seeing every state of a component

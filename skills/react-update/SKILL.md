@@ -19,12 +19,12 @@ already tests, callers and a spec that described something else.
    matches its spec is how drift starts.
 2. **Map the blast radius before editing.** Who imports this?
    ```bash
-   grep -rn "from '@/features/<slug>'" src/
+   grep -rn "from '@/modules/<slug>'" src/
    grep -rn "<ComponentName>" src/
    ```
    Say what you found. A change to a feature's `index.ts` is an API change.
 3. **Run the tests first**, before touching anything:
-   `npm run test -- src/features/<slug>`. You need to know whether you broke it
+   `npm run test -- src/modules/<module>/<page>`. You need to know whether you broke it
    or found it broken.
 4. **Make the smallest change that works.** Do not refactor adjacent code in the
    same pass — if you see something worth fixing, note it and offer it

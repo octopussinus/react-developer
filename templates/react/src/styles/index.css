@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './themes.css';
 
 /*
  * shadcn/ui-compatible theme (Tailwind v4).
@@ -111,6 +112,15 @@
   --chart-5: #e87ba4;
 
   --radius: 0.625rem;
+
+  /*
+   * Shape tokens. Colour alone does not make a theme look different -- buttons
+   * and inputs still have the same weight, border and elevation. These are what
+   * a theme changes to actually look like another design.
+   */
+  --ui-border-width: 1px;
+  --ui-font-weight: 500;
+  --ui-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);

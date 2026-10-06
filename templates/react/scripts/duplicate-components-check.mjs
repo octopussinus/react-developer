@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Component duplication across features.
+ * Component duplication across modules and pages.
  *
  * The same component copied into a second feature instead of promoted is a real
  * maintenance defect: the two copies drift, and a design change has to be made
@@ -31,8 +31,10 @@ import { join } from 'node:path';
 import { cwd, exit } from 'node:process';
 
 const ROOT = cwd();
-const FEATURES = join(ROOT, 'src/features');
+const MODULES = join(ROOT, 'src/modules');
 const SHARED_LAYERS = ['atoms', 'molecules', 'organisms', 'templates'];
+/** Folder names a module owns itself; any other folder under it is a page. */
+const RESERVED = new Set(['api', 'components', 'hooks', 'lib', 'types', 'constants', 'validation']);
 const OPT_OUT = /\/\/\s*duplicate-ok:\s*\S+/;
 
 /** Only the component file itself -- its test and story share its name by design. */
@@ -50,26 +52,42 @@ async function hasOptOut(path) {
   return OPT_OUT.test(await readFile(path, 'utf8'));
 }
 
-if (!existsSync(FEATURES)) {
-  console.log('  no src/features yet -- nothing to check');
+if (!existsSync(MODULES)) {
+  console.log('  no src/modules yet -- nothing to check');
   exit(0);
 }
 
 /** name -> [{ path, kind }] */
 const byName = new Map();
 
-const features = (await readdir(FEATURES, { withFileTypes: true }))
+const moduleNames = (await readdir(MODULES, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name);
 
-for (const feature of features) {
-  const directory = join(FEATURES, feature, 'components');
-  for (const file of await componentsIn(directory)) {
-    const entry = {
-      path: `src/features/${feature}/components/${file}`,
-      kind: `feature ${feature}`,
-    };
-    byName.set(file, [...(byName.get(file) ?? []), entry]);
+/** Every components/ folder a module owns: its own, and one per page. */
+const owners = [];
+for (const moduleName of moduleNames) {
+  owners.push({
+    dir: join(MODULES, moduleName, 'components'),
+    path: `src/modules/${moduleName}/components`,
+    kind: `module ${moduleName}`,
+  });
+  for (const entry of await readdir(join(MODULES, moduleName), { withFileTypes: true })) {
+    if (!entry.isDirectory() || RESERVED.has(entry.name)) continue;
+    owners.push({
+      dir: join(MODULES, moduleName, entry.name, 'components'),
+      path: `src/modules/${moduleName}/${entry.name}/components`,
+      kind: `page ${moduleName}/${entry.name}`,
+    });
+  }
+}
+
+for (const owner of owners) {
+  for (const file of await componentsIn(owner.dir)) {
+    byName.set(file, [
+      ...(byName.get(file) ?? []),
+      { path: `${owner.path}/${file}`, kind: owner.kind },
+    ]);
   }
 }
 
@@ -96,7 +114,7 @@ for (const [name, places] of byName) {
 }
 
 if (problems.length === 0) {
-  console.log(`  components ok: no duplication across ${features.length} feature(s)`);
+  console.log(`  components ok: no duplication across ${moduleNames.length} module(s)`);
   exit(0);
 }
 
@@ -107,17 +125,29 @@ for (const { name, places, partial } of problems) {
   for (const place of places) console.error(`    ${place.path}  (${place.kind})`);
 
   const shared = places.find((place) => place.kind.startsWith('shared'));
-  const feature = places[0].kind.replace('feature ', '');
+  const atModule = places.find((place) => place.kind.startsWith('module '));
+  const page = places.find((place) => place.kind.startsWith('page '));
+  // `page orders/list` -> `orders list`, the two arguments promote expects.
+  const target = (page ?? places[0]).kind.replace(/^(page|module) /, '').replace('/', ' ');
   const pascal = name
     .replace(/\.tsx$/, '')
     .split('-')
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join('');
-  const promote = `npm run gen -- promote ${feature} ${pascal} --to=molecule`;
+  // Within one module, the first stop is the module's own components/, not a
+  // global layer: sharing it app-wide is a bigger claim than the evidence.
+  const promote = `npm run gen -- promote ${target} ${pascal} --to=module`;
 
   if (shared) {
     // Not an abstraction decision: the abstraction already exists.
     console.error('    -> a shared version already exists. Import it and delete the copy.');
+  } else if (atModule && page) {
+    console.error(
+      `    -> the module already has this one. Import it from @/modules/${atModule.kind.replace(
+        'module ',
+        '',
+      )} and delete the page copy.`,
+    );
   } else if (places.length >= 3) {
     // Rule of three: three concrete uses is enough evidence that the shape is real.
     console.error('    -> three copies. That is enough evidence the shape is real:');
@@ -126,7 +156,7 @@ for (const { name, places, partial } of problems) {
   } else {
     // Two copies is weak evidence. The literature is consistent that the wrong
     // abstraction costs more than the duplication: deleting a copy is trivial,
-    // untangling a shared component two features pull in opposite directions is
+    // untangling a shared component two pages pull in opposite directions is
     // not. So at two, justified duplication is the DEFAULT, not the fallback.
     console.error('    -> two copies is not yet evidence of a shared component. Pick one:');
     console.error('       (a) they would diverge -> keep both, add');

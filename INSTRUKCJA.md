@@ -522,6 +522,31 @@ Robi dokładnie to samo i działa od razu na Twoim komputerze. Jeśli chcesz kr�
 formę, poproś asystenta o opublikowanie rejestru — wymaga to jednorazowego
 włączenia hostingu dla repozytorium.
 
+## Przełączanie motywu i języka w trakcie pracy
+
+Na lewo od **Feedback** są dwa kolejne przyciski:
+
+**Przycisk motywu** pokazuje, co jest aktywne, np. `Default · system`. Kliknięcie
+otwiera menu z **trzema motywami** oraz jasny/ciemny/systemowy. Motywy to nie
+tylko inne kolory — przyciski i pola naprawdę zmieniają kształt: zaokrąglenia,
+grubość obramowania, wagę czcionki, cień. Przeskakiwanie między nimi to
+najszybszy sposób, żeby wyłapać cokolwiek, co ma kolor albo zaokrąglenie wpisane
+na sztywno zamiast pobrane z tokenów.
+
+**Przycisk języka** pokazuje `EN` albo `PL` i przełącza między nimi. Twój projekt
+zawsze ma oba, nawet jeśli projekt graficzny pokazuje jeden — bo układ, który
+przetrwał tylko po angielsku, to układ, którego nikt nie przetestował. Polskie i
+niemieckie słowa są dłuższe i potrafią rozwalić layout.
+
+Oba to narzędzia dla programisty, nie część Twojej strony. Jeśli projekt
+przewiduje prawdziwy przełącznik motywu albo języka dla użytkowników, poproś o
+niego — te dwa działają niezależnie.
+
+Każdy projekt startuje z trzema motywami i dwoma językami, niezależnie od tego,
+czy design o nich wspomina. Jeśli masz projekt graficzny, poproś asystenta, żeby
+przerobił te trzy pod niego — **a nie zszedł do jednego**. Zapasowe motywy nic nie
+kosztują, a to one wyłapują wcześnie kolor wpisany na sztywno.
+
 ## Trzy dodatkowe rzeczy, które warto znać
 
 ### Storybook — podgląd każdego stanu komponentu

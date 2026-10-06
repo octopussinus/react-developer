@@ -1,6 +1,6 @@
 /**
  * Dev-only "Dev" overlay: shows, on the page itself, which components are
- * SHARED across features and which were written for this one feature.
+ * SHARED across the app and which were written for this one page.
  *
  * Why it exists: after an agent builds a feature you cannot tell by looking
  * whether it reused the design system or quietly rebuilt a card. This answers
@@ -42,7 +42,7 @@ const CATEGORY: Record<Category, { label: string; color: string; hint: string }>
   newHere: {
     label: 'Written for this feature',
     color: '#3b82f6',
-    hint: 'new on this branch, inside the feature',
+    hint: 'new on this branch, inside the page slice',
   },
   existingHere: {
     label: 'Existing feature code',

@@ -52,4 +52,16 @@ void i18n
     returnNull: false,
   });
 
+/**
+ * Keep `<html lang>` in step with the active locale.
+ *
+ * index.html hardcodes `lang="en"`, so without this a Polish page still claims
+ * to be English: screen readers pick the wrong pronunciation rules and hyphen-
+ * ation breaks. It lives here, not in whatever UI switches the language, so it
+ * holds however the language changes.
+ */
+i18n.on('languageChanged', (language) => {
+  document.documentElement.lang = language;
+});
+
 export default i18n;
