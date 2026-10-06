@@ -69,5 +69,7 @@ stale, the fix is `react-dev sync`.
 
 > **Stage 1 of 11 complete.** `AGENTS.md` written; `CLAUDE.md` and `GEMINI.md`
 > link to it, so all three agents read the same rules.
-> **Do next:** `react-roadmap` — design the pages in Stitch, then plan features.
+> **Do next:** **`/clear`**, then `react-roadmap`. The rules are in `AGENTS.md`
+> now, which every agent reads on its own — the conversation that produced them
+> is spent.
 > **Rules not right yet?** Edit `AGENTS.md` and re-run this.

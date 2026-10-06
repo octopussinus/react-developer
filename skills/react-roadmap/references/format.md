@@ -28,10 +28,17 @@ Blocking, and not features. Detail: [roadmap/prerequisites.md](roadmap/prerequis
 
 ## Features
 
-| #   | Slug          | What the user can do          | Needs  | Size | Detail                                 |
-| --- | ------------- | ----------------------------- | ------ | ---- | -------------------------------------- |
-| 1   | `landing`     | read the public page, sign up | P4     | S    | [→](roadmap/001-landing.md)            |
-| 2   | `dog-profile` | see and edit one dog          | P1, 1  | M    | [→](roadmap/002-dog-profile.md)        |
+| #   | Module    | Page          | What the user can do          | Needs  | Size | Detail                          |
+| --- | --------- | ------------- | ----------------------------- | ------ | ---- | ------------------------------- |
+| 1   | `public`  | `landing`     | read the public page, sign up | P4     | S    | [→](roadmap/001-landing.md)     |
+| 2   | `dogs`    | `profile`     | see and edit one dog          | P1, 1  | M    | [→](roadmap/002-dog-profile.md) |
+
+**Module is required, not decoration.** It is where the code lands
+(`src/modules/<module>/<page>/`) and it is the lock the parallel orchestrator
+uses: two features of the SAME module are never built at the same time, because
+they share that module's components, lib and types. Getting it wrong does not
+produce a merge conflict — it produces two agents editing one file and a clean
+merge that does not build.
 
 Size: S = one loop pass · M = one pass, bigger spec · L = **split before starting**
 

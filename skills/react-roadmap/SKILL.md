@@ -101,4 +101,6 @@ Instead, name only the ones that block feature 1 in the `## Next` block below.
 > `specs/ROADMAP.md` + `specs/roadmap/` (one file per feature). Q open questions,
 > K of them blocking feature 1: <name them>.
 > **Do next:** `react-clarify` — decides those K one at a time, as a choice list.
+> Planning a whole product is a long conversation and all of it is now in
+> `specs/`, so **`/clear` once the questions are answered**, before feature 1.
 > **Nothing blocking?** `react-feature 1`.

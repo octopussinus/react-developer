@@ -1,4 +1,13 @@
 import { defineConfig } from '@playwright/test';
+// @ts-expect-error -- plain .mjs helper, no types needed
+import { devUrl } from './tools/dev-port.mjs';
+
+/*
+ * The dev server URL is derived from THIS checkout, not hardcoded. Two worktrees
+ * on a fixed port plus `reuseExistingServer` means the second one silently runs
+ * its whole suite against the first one's code -- passing, and proving nothing.
+ */
+const url = devUrl();
 
 export default defineConfig({
   testDir: './e2e',
@@ -7,7 +16,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [['html'], ['github']] : 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: url,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -27,8 +36,13 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+    url,
+    /*
+     * Opt-IN rather than opt-out. Reusing a server is a convenience worth
+     * seconds; reusing the WRONG one costs you a green run on code you never
+     * executed. Set PW_REUSE_SERVER=1 when you knowingly have one running.
+     */
+    reuseExistingServer: process.env.PW_REUSE_SERVER === '1',
     timeout: 120_000,
   },
 });

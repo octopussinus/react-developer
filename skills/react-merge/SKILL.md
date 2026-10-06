@@ -80,5 +80,7 @@ Then:
 
 > **Stage 11 of 11 complete — the pipeline is closed for this feature.** Merged as
 > `<sha>`, branch deleted, roadmap entry ticked. This unblocked: <features>.
-> **Do next:** `react-feature <N>` for the next roadmap entry.
+> **Do next:** **`/clear` first**, then `react-feature <N>`. The feature is
+> landed and everything about it is on disk — carrying its spec, its dead ends
+> and its gate output into the next one only crowds out the next one's.
 > **Not sure what is next?** `react-dev status` — it reads the files and git.

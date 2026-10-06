@@ -337,6 +337,60 @@ końcu powie, którą funkcję można teraz zrobić dalej.
 
 ---
 
+## Czyszczenie pamięci asystenta
+
+Asystent pamięta wszystko, co padło w sesji. To przydatne, dopóki budujesz jedną
+rzecz, i staje się obciążeniem, gdy przechodzisz do następnej: stara rozmowa
+wypiera nową i odpowiedzi robią się gorsze.
+
+Czyścisz to wpisując:
+
+```
+/clear
+```
+
+**Tylko w trzech miejscach**, a asystent sam powie, kiedy do nich dojdziesz:
+
+| Po                                  | Dlaczego                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| **Kroku 1** (`/react-constitution`) | Zasady są zapisane w pliku, który asystent i tak zawsze czyta            |
+| **Kroku 2** (`/react-roadmap`)      | Plan jest zapisany, a planowanie całego produktu to bardzo długa rozmowa |
+| **Kroku 11** (`/react-merge`)       | Funkcja jest skończona i wszystko o niej jest zapisane                   |
+
+**Nigdy w środku pracy nad funkcją.** Kroki 3–10 to jedna całość: decyzje z kroku
+5 są tym, na czym buduje krok 7. Wyczyszczenie tam je wyrzuca, a asystent zgaduje
+od nowa — gorzej.
+
+Prosty sprawdzian: _czy musiałbyś wytłumaczyć poprzednie zadanie nowej osobie,
+zanim poprośisz ją o to kolejne?_ Jeśli nie — czyść. Jeśli tak — nie czyść.
+
+Jeśli jedna funkcja ciągnie się bardzo długo i asystent zaczyna zwalniać, jest
+łagodniejsza opcja, która streszcza zamiast zapominać:
+
+```
+/compact
+```
+
+Tej używaj **w trakcie** pracy nad czymś; `/clear` **między** rzeczami.
+
+### Żeby działo się samo
+
+Możesz w ogóle o tym nie pamiętać:
+
+```
+react-dev next
+```
+
+Komenda sprawdza, gdzie jest Twój projekt, i otwiera **zupełnie nową sesję
+asystenta**, od razu nakierowaną na następny krok. Nowa sesja z definicji nie
+pamięta poprzedniej, więc czysta karta dzieje się sama, a nie wtedy, gdy sobie o
+niej przypomnisz.
+
+Jedno uczciwe ograniczenie, o którym komenda sama mówi: przenosi się tylko to, co
+**zapisane w plikach**. Na granicy funkcji to jest wszystko. W środku pracy nad
+funkcją — jeśli przed chwilą coś ustaliłeś na czacie i nikt tego nie zapisał,
+powtórz to albo zapisz najpierw.
+
 ## Jeśli się pogubisz
 
 Wpisz to w tym Terminalu, w którym **nie** działa strona:

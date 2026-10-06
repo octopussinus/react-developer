@@ -532,3 +532,120 @@ def prerequisite_status(project: Path) -> list[PrerequisiteStatus]:
 
 def current_branch(project: Path) -> str:
     return _git(project, "rev-parse", "--abbrev-ref", "HEAD")
+
+
+@dataclass
+class ParallelPlan:
+    """A batch that is safe to build at the same time, and why the rest is not."""
+
+    batch: list[FeatureStatus]
+    excluded: list[tuple[FeatureStatus, str]]
+
+
+def _module_column(index_text: str) -> int | None:
+    """Which column of the features table holds the module, by its header.
+
+    Found by NAME, never by position. Reading "the first cell after the number"
+    silently returns the slug on a roadmap written before the column existed --
+    and since every slug is unique, every feature then looks like its own module
+    and the batch comes back MORE permissive than it should be. A lock that fails
+    open is worse than no lock.
+    """
+    for line in index_text.splitlines():
+        cells = [c.strip().strip("`").lower() for c in line.split("|")]
+        if "module" in cells and "#" in cells:
+            return cells.index("module")
+    return None
+
+
+def _module_of(index_text: str, number: str, column: int) -> str | None:
+    for line in index_text.splitlines():
+        cells = [c.strip().strip("`") for c in line.split("|")]
+        if len(cells) <= column:
+            continue
+        if cells[1].strip() == str(int(number)):
+            value = cells[column].strip()
+            return value or None
+    return None
+
+
+def parallel_batch(project: Path, limit: int = 3) -> ParallelPlan:
+    """Features that can honestly be built at the same time.
+
+    Claim-plane selection: the MODULE is the lock. Two pages of one module share
+    that module's `components/`, `lib/` and `types/`, so building them at once is
+    two agents editing one file -- which git merges cleanly into something that
+    does not build. Worktrees isolate files, not meaning.
+
+    Three other things disqualify a feature, and each is a fact on disk rather
+    than a judgement:
+
+    * an unresolved `[NEEDS CLARIFICATION]` -- it would be built on a guess
+    * a prerequisite or earlier feature it declares a dependency on, still open
+    * already started -- it has a work folder, so it is somebody's current job
+    """
+    features = pipeline_status(project)
+    index = project / "specs" / "ROADMAP.md"
+    index_text = index.read_text(encoding="utf-8", errors="ignore") if index.is_file() else ""
+    roadmap_dir = project / "specs" / "roadmap"
+
+    module_column = _module_column(index_text)
+    if module_column is None:
+        # Refuse rather than guess: without the lock, parallel is unsafe.
+        return ParallelPlan(
+            batch=[],
+            excluded=[
+                (
+                    f,
+                    "roadmap has no Module column - re-run react-roadmap, or add it. "
+                    "Without it there is no lock and parallel builds are unsafe",
+                )
+                for f in features
+                if f.stage == "planned"
+            ],
+        )
+
+    done = {f.number for f in features if f.stage == "merged"}
+    batch: list[FeatureStatus] = []
+    excluded: list[tuple[FeatureStatus, str]] = []
+    claimed: set[str] = set()
+
+    for feature in features:
+        if feature.stage != "planned":
+            excluded.append((feature, f"already {feature.stage}"))
+            continue
+
+        detail = roadmap_dir / f"{feature.number}-{feature.slug}.md"
+        text = detail.read_text(encoding="utf-8", errors="ignore") if detail.is_file() else ""
+        if "[NEEDS CLARIFICATION" in text:
+            excluded.append((feature, "open questions - run react-clarify first"))
+            continue
+
+        needs = re.search(r"Needs \*\*([^*]+)\*\*", text)
+        blocking = []
+        for token in (needs.group(1).split(",") if needs else []):
+            token = token.strip()
+            if token.lower().startswith("p"):
+                blocking.append(token)  # a prerequisite; never auto-satisfied here
+            elif token.rstrip(".").isdigit() and f"{int(token):03d}" not in done:
+                blocking.append(f"feature {int(token)}")
+        if blocking:
+            excluded.append((feature, f"waiting on {', '.join(blocking)}"))
+            continue
+
+        module = _module_of(index_text, feature.number, module_column)
+        if module is None:
+            excluded.append((feature, "no module in the roadmap row"))
+            continue
+        if module in claimed:
+            excluded.append((feature, f"module `{module}` is already being built"))
+            continue
+
+        if len(batch) >= limit:
+            excluded.append((feature, f"over the limit of {limit}"))
+            continue
+
+        claimed.add(module)
+        batch.append(feature)
+
+    return ParallelPlan(batch=batch, excluded=excluded)

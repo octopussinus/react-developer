@@ -1250,3 +1250,306 @@ def test_each_theme_overrides_the_same_colour_tokens_in_light_and_dark():
             f"  only in dark:  {sorted(dark - light)}\n"
             "A token set only in light leaks that value into dark mode."
         )
+
+
+# Context hygiene. `/clear` is a USER action -- a skill cannot clear its own
+# context, so the most a skill can do is say when it is worth doing. Saying it
+# at the wrong moment is worse than not saying it: clearing mid-feature throws
+# away the spec decisions, the clarifications and what was already tried.
+
+CLEAR_AT_BOUNDARIES = ["react-constitution", "react-roadmap", "react-merge"]
+
+MUST_NOT_SUGGEST_CLEAR = [
+    "react-feature", "react-spec", "react-clarify", "react-implement",
+    "react-verify", "react-analyze", "react-review", "react-ship",
+    "react-component", "react-feedback", "react-i18n", "react-theme",
+    "react-update", "react-publish",
+]
+
+
+def test_only_real_boundaries_suggest_clearing_the_context():
+    """The documented rule: would you brief a new teammate on the last task?
+
+    After a merge, after the roadmap, after the constitution -- no. Mid-feature --
+    yes, obviously, which is why those skills must stay quiet about it.
+    """
+    for name in CLEAR_AT_BOUNDARIES:
+        body = (REPO_ROOT / "skills" / name / "SKILL.md").read_text()
+        assert "`/clear`" in body, f"{name} is a boundary and should say so"
+
+    for name in MUST_NOT_SUGGEST_CLEAR:
+        body = (REPO_ROOT / "skills" / name / "SKILL.md").read_text()
+        assert "/clear" not in body, (
+            f"{name} suggests clearing, but it runs inside one feature's work -- "
+            "clearing there discards the spec and the decisions it depends on"
+        )
+
+
+def test_clearing_is_advised_before_the_next_command_not_after():
+    """Order matters: clear, THEN start the next unit of work."""
+    merge = (REPO_ROOT / "skills" / "react-merge" / "SKILL.md").read_text()
+    tail = merge.split("## Next", 1)[1]
+    assert tail.index("/clear") < tail.index("react-feature"), (
+        "react-merge must put /clear before the next command, or the fresh "
+        "context is created after the work that needed it"
+    )
+
+
+def test_next_starts_a_fresh_session_because_hooks_cannot_clear(tmp_path, monkeypatch):
+    """Context cannot be cleared from inside a session.
+
+    Confirmed against the hooks reference: every hook output field is decision
+    control or context injection, `PreCompact` can block compaction but not start
+    it, and nothing can trigger `/clear`. A new PROCESS can, which is what this
+    command is for -- the clean slate is structural rather than something the
+    user has to remember at the right moment.
+    """
+    (tmp_path / "specs" / "roadmap").mkdir(parents=True)
+    (tmp_path / "specs" / "ROADMAP.md").write_text("| 1 | landing | public | — |\n")
+    (tmp_path / "specs" / "roadmap" / "001-landing.md").write_text("# Landing\n")
+
+    result = runner.invoke(app, ["next", str(tmp_path), "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "react-feature 1" in result.output
+    assert "landing" in result.output
+
+
+def test_next_warns_that_only_files_carry_into_a_fresh_session(tmp_path):
+    """Mid-feature it still works -- every stage reads specs/ -- but an
+    unrecorded decision is lost, and the command has to say so."""
+    (tmp_path / "specs" / "roadmap").mkdir(parents=True)
+    (tmp_path / "specs" / "ROADMAP.md").write_text("| 1 | landing | public | — |\n")
+    (tmp_path / "specs" / "roadmap" / "001-landing.md").write_text("# Landing\n")
+    work = tmp_path / "specs" / "001-landing"
+    work.mkdir()
+    (work / "spec.md").write_text("# Spec\n\nAll decided.\n")
+    (work / "tasks.md").write_text("- [ ] build it\n")
+
+    result = runner.invoke(app, ["next", str(tmp_path), "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "Mid-feature" in result.output
+    assert "specs/" in result.output
+
+    # A real boundary is `planned` or `merged` -- NOT "tasks are ticked", which
+    # still leaves analyze, review, ship and merge to go. There it says the
+    # opposite rather than nagging.
+    import shutil as _shutil
+
+    _shutil.rmtree(work)
+    boundary = runner.invoke(app, ["next", str(tmp_path), "--dry-run"])
+    assert "Mid-feature" not in boundary.output
+    assert "boundary" in boundary.output
+
+
+# Subagents are the one way the AGENT itself gets a fresh context automatically.
+# It cannot clear its own thread -- no hook can, confirmed against the hooks
+# reference -- but it delegates to these on its own, and each starts isolated.
+
+ISOLATED_STAGES = ["react-verify", "react-analyze", "react-review"]
+
+
+def test_the_stages_that_flood_context_run_as_subagents():
+    """Three stages read or produce a lot and hand back a short answer.
+
+    Verify floods the window with gate output, analyze reads the whole feature,
+    and review is worth more when it has NOT sat through the decisions that
+    produced the code. All three take their input from files, so a fresh context
+    loses nothing.
+    """
+    import re
+
+    agents = REPO_ROOT / "templates/shared/.claude/agents"
+    for name in ISOLATED_STAGES:
+        agent = agents / f"{name}.md"
+        assert agent.is_file(), f"no subagent for {name}"
+        front = agent.read_text().split("---")[1]
+        fields = dict(re.findall(r"^(\w+): (.+)$", front, re.M))
+        assert fields["name"] == name
+        # `description` is what Claude matches on to delegate without being asked.
+        assert len(fields.get("description", "")) > 40, f"{name}: description too thin"
+        assert fields.get("skills") == name, f"{name} must preload its own skill"
+
+    # Read-only stages must not be handed write tools: a finding repaired inside
+    # the analysis hides in the diff and nobody learns the project drifted.
+    for name in ("react-analyze", "react-review"):
+        front = (agents / f"{name}.md").read_text().split("---")[1]
+        tools = dict(re.findall(r"^(\w+): (.+)$", front, re.M))["tools"]
+        assert "Write" not in tools and "Edit" not in tools, f"{name} can write"
+
+
+def test_interactive_stages_are_not_delegated_to_subagents():
+    """A subagent is a bad fit for anything needing back-and-forth.
+
+    `react-clarify` asks one question at a time and waits; `react-spec` and
+    `react-implement` are the work itself. Isolating those would cut the user out
+    of the loop the pipeline exists to keep them in.
+    """
+    agents = REPO_ROOT / "templates/shared/.claude/agents"
+    for name in ("react-clarify", "react-spec", "react-implement", "react-feature",
+                 "react-ship", "react-merge"):
+        assert not (agents / f"{name}.md").exists(), (
+            f"{name} must not be a subagent -- it needs the user in the loop"
+        )
+
+
+def test_dev_server_port_is_per_checkout_so_worktrees_cannot_cross_contaminate():
+    """A fixed port plus `reuseExistingServer` tests the wrong source tree.
+
+    Two checkouts share ports even when git worktrees separate their files. With
+    5173 hardcoded, the second one finds the first one's dev server already
+    listening and runs its entire suite against that code -- passing, and proving
+    nothing about the branch under test. Verified by running two checkouts at
+    once: each started its own server and tested its own code.
+    """
+    import subprocess
+
+    template = REPO_ROOT / "templates" / "react"
+    helper = template / "tools" / "dev-port.mjs"
+    assert helper.is_file()
+
+    def port_in(directory):
+        out = subprocess.run(
+            ["node", "-e", "import('%s').then(m=>console.log(m.devPort()))" % helper.as_posix()],
+            cwd=directory, capture_output=True, text=True, timeout=60,
+        )
+        return int(out.stdout.strip())
+
+    # Same directory, same port -- baselines and bookmarks must stay valid.
+    assert port_in(template) == port_in(template)
+    # Different directory, different port.
+    assert port_in(template) != port_in(REPO_ROOT)
+
+    playwright = (template / "playwright.config.ts").read_text()
+    assert "localhost:5173" not in playwright, "a hardcoded port is the whole bug"
+    assert "devUrl()" in playwright
+    # Opt-IN: reusing the wrong server costs a green run on code never executed.
+    assert "PW_REUSE_SERVER === '1'" in playwright
+
+    vite = (template / "vite.config.ts").read_text()
+    assert "strictPort: true" in vite, (
+        "without strictPort Vite silently moves to the next free port while "
+        "Playwright keeps testing whatever still holds the old one"
+    )
+
+
+def test_implement_runs_the_checks_itself_but_never_ships():
+    """Verify, analyze and review follow implementation without being asked.
+
+    All three read files that were just written and hand back a verdict, so
+    making the user type three commands to learn whether the work holds up is a
+    chore the pipeline created. Ship and merge are excluded on purpose: nobody
+    should discover their branch was pushed because a chain ran on.
+    """
+    body = (REPO_ROOT / "skills" / "react-implement" / "SKILL.md").read_text()
+    for stage in ("react-verify", "react-analyze", "react-review"):
+        assert stage in body, f"{stage} must be part of the chain"
+    assert "subagent" in body, "the chain should delegate, or it floods this context"
+    # A red gate stops the chain rather than being reported alongside later work.
+    assert "red" in body.lower()
+    tail = body.split("## Next", 1)[1]
+    assert "react-ship" in tail, "the chain must hand off to ship, not run it"
+    assert "NOT part of this" in body or "not part of this" in body.lower()
+
+
+def test_parallel_batch_locks_on_the_module(tmp_path):
+    """Claim plane: the module is the lock, because it is what two pages share.
+
+    Worktrees isolate files, not meaning. Two pages of one module edit its
+    components/, lib/ and types/, and git merges that cleanly into a build that
+    does not work -- the documented failure mode of parallel agents.
+    """
+    from react_dev.project import parallel_batch
+
+    specs = tmp_path / "specs"
+    (specs / "roadmap").mkdir(parents=True)
+    (specs / "ROADMAP.md").write_text(
+        "| #   | Module | Page | What | Needs | Size | Detail |\n"
+        "| --- | ------ | ---- | ---- | ----- | ---- | ------ |\n"
+        "| 1 | `public` | `landing` | sign up | — | S | x |\n"
+        "| 2 | `dogs` | `profile` | see | — | M | x |\n"
+        "| 3 | `dogs` | `weight` | track | — | M | x |\n"
+        "| 4 | `shop` | `cart` | buy | 2 | M | x |\n"
+        "| 5 | `billing` | `invoices` | bills | — | M | x |\n"
+    )
+    for number, slug in [("001", "landing"), ("002", "profile"), ("003", "weight")]:
+        (specs / "roadmap" / f"{number}-{slug}.md").write_text("# x\n")
+    (specs / "roadmap" / "004-cart.md").write_text("# Cart\n\nSize **M** · Needs **2**\n")
+    (specs / "roadmap" / "005-invoices.md").write_text(
+        "# Invoices\n\n[NEEDS CLARIFICATION: which currency?]\n"
+    )
+
+    plan = parallel_batch(tmp_path)
+    assert [f.slug for f in plan.batch] == ["landing", "profile"]
+
+    reasons = {f.slug: why for f, why in plan.excluded}
+    assert "module" in reasons["weight"], "same module must be held back"
+    assert "feature 2" in reasons["cart"], "a declared dependency must be honoured"
+    assert "question" in reasons["invoices"], "an unanswered marker must disqualify"
+
+
+def test_parallel_never_starts_work_built_on_an_unanswered_question(tmp_path):
+    """A parallel agent has no terminal: a guess is invisible until it merges."""
+    from react_dev.project import parallel_batch
+
+    specs = tmp_path / "specs"
+    (specs / "roadmap").mkdir(parents=True)
+    (specs / "ROADMAP.md").write_text(
+        "| #   | Module | Page | What | Needs | Size | Detail |\n"
+        "| --- | ------ | ---- | ---- | ----- | ---- | ------ |\n"
+        "| 1 | `public` | `landing` | x | — | S | x |\n"
+    )
+    (specs / "roadmap" / "001-landing.md").write_text("[NEEDS CLARIFICATION: what?]\n")
+    assert parallel_batch(tmp_path).batch == []
+
+    (specs / "roadmap" / "001-landing.md").write_text("# Landing\n")
+    assert [f.slug for f in parallel_batch(tmp_path).batch] == ["landing"]
+
+
+def test_the_worker_is_worktree_isolated_and_cannot_land_anything():
+    agent = (REPO_ROOT / "templates/shared/.claude/agents/react-feature-worker.md").read_text()
+    assert "isolation: worktree" in agent, "parallel agents must not share a checkout"
+    # Landing is sequential: each branch passed its gate against a base that is
+    # not the base it would land on.
+    assert "Never run `react-ship` or `react-merge`" in agent
+
+    skill = (REPO_ROOT / "skills" / "react-parallel" / "SKILL.md").read_text()
+    assert "single-lane" in skill.lower()
+    # Re-running the gate after rebase is the only defence against a semantic
+    # conflict -- no merge strategy catches those.
+    assert "semantic conflict" in skill.lower()
+    assert "npm run verify" in skill
+
+
+def test_parallel_refuses_a_roadmap_with_no_module_column(tmp_path):
+    """A lock that fails OPEN is worse than no lock.
+
+    The column is found by header name, not position. Reading "the first cell
+    after the number" returns the slug on a roadmap written before the column
+    existed -- and since slugs are unique, every feature then looks like its own
+    module and the batch comes back MORE permissive than it should be.
+    """
+    from react_dev.project import parallel_batch
+
+    specs = tmp_path / "specs"
+    (specs / "roadmap").mkdir(parents=True)
+    (specs / "ROADMAP.md").write_text(
+        "| #   | Slug      | What | Needs | Size | Detail |\n"
+        "| --- | --------- | ---- | ----- | ---- | ------ |\n"
+        "| 1   | `landing` | x    | —     | S    | x      |\n"
+        "| 2   | `profile` | x    | —     | M    | x      |\n"
+    )
+    for name in ("001-landing", "002-profile"):
+        (specs / "roadmap" / f"{name}.md").write_text("# x\n")
+
+    plan = parallel_batch(tmp_path)
+    assert plan.batch == [], "without a module column nothing may run in parallel"
+    assert all("Module column" in why for _, why in plan.excluded)
+
+    # With the column, the lock works again and two pages of one module split up.
+    (specs / "ROADMAP.md").write_text(
+        "| #   | Module   | Page      | What | Needs | Size | Detail |\n"
+        "| --- | -------- | --------- | ---- | ----- | ---- | ------ |\n"
+        "| 1   | `public` | `landing` | x    | —     | S    | x      |\n"
+        "| 2   | `dogs`   | `profile` | x    | —     | M    | x      |\n"
+    )
+    assert [f.slug for f in parallel_batch(tmp_path).batch] == ["landing", "profile"]

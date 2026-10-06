@@ -232,6 +232,80 @@ Lost your place? `react-dev status` derives it from the files and from git:
 In flight: 2 dog-profile — 6 unticked tasks. Next: react-implement
 ```
 
+### Clearing context — three moments, and no others
+
+The agent cannot clear its own context; `/clear` is yours to run. Three places
+in the pipeline are real boundaries, and the three skills that end there say so:
+
+| After                 | Why the previous conversation is dead weight                       |
+| --------------------- | ------------------------------------------------------------------ |
+| `/react-constitution` | The rules are in `AGENTS.md`, which every agent reads on its own   |
+| `/react-roadmap`      | The plan is in `specs/`; planning a product is a long conversation |
+| `/react-merge`        | The feature is landed and everything about it is on disk           |
+
+The test is the one from Anthropic's own guidance: **would you brief a new
+teammate on the previous task before asking them to start this one?** After a
+merge — no. Mid-feature — obviously yes, which is why nothing between
+`react-feature` and `react-ship` ever suggests it. Clearing there throws away the
+spec decisions, the clarifications and what was already tried, and the agent
+re-derives them worse.
+
+**Within one feature, use `/compact`, not `/clear`** — and run it around 60% of
+the context, not at 95%. At 60% there is room for a good summary; at 95% the
+automatic one is squeezed until detail is lost. You can aim it:
+
+```
+/compact keep the spec decisions and the failing test
+```
+
+Order matters: clear **before** the next command, not after.
+
+### The agent clearing context by itself
+
+It cannot clear _its own_ thread — nothing can, from inside a session. But it can
+run work in a **fresh, isolated context without being asked**, and three stages
+do exactly that:
+
+| Stage           | Why it runs isolated                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `react-verify`  | The gate prints hundreds of lines nobody needs afterwards; the results go to `review.md` |
+| `react-analyze` | Reads the spec and every touched file, returns findings, not files                       |
+| `react-review`  | Worth more _because_ it has not sat through the decisions that produced the code         |
+
+They are subagents (`.claude/agents/*.md`), each preloading its own skill. Claude
+delegates to them on its own, each starts with an empty context, and only a short
+verdict comes back. The main conversation stays about the feature.
+
+Nothing between `react-feature` and `react-ship` is a subagent, and that is
+deliberate: `react-clarify` asks one question at a time and waits for you, and
+`react-spec`/`react-implement` are the work itself. Isolating those would cut you
+out of the loop the pipeline exists to keep you in.
+
+The read-only two have **no write tools**, so a finding cannot be quietly
+repaired inside the analysis that found it.
+
+### Doing it manually, or per feature
+
+`/clear` cannot be automated from inside a session. Every hook output field is
+decision control or context injection; `PreCompact` can _block_ compaction but
+not start one, and nothing can trigger `/clear`. Checked against the hooks
+reference, not assumed.
+
+A new **process** can, which is what this does:
+
+```bash
+react-dev next
+```
+
+It reads where the pipeline is, then `exec`s a fresh agent session already
+pointed at the next command. The clean slate is structural — you cannot forget
+it at the wrong moment.
+
+It works at any stage, because every stage reads its input from `specs/` — which
+is also the limit, and it says so: **only what is on disk carries over.** At a
+feature boundary it tells you nothing is needed from the last one; mid-feature it
+warns that anything you agreed in chat and did not write down is lost.
+
 ### Read the last block, ignore the rest
 
 Every skill ends with a `Next` block, and nothing comes after it:
@@ -891,7 +965,7 @@ fails, so this list is a description of its behaviour rather than a chore:
 | 10  | `/react-ship`         | commit, push, PR — refuses on red                    |
 | 11  | `/react-merge`        | squash merge, roadmap ticked with the sha            |
 
-Toolbox, called when needed: `/react-component`, `/react-publish`,
+Toolbox, called when needed: `/react-component`, `/react-publish`, `/react-parallel`,
 `/react-feedback`,
 `/react-update`, `/react-i18n`, `/react-theme`.
 

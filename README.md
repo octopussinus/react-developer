@@ -81,7 +81,7 @@ summary that leaves you guessing. `AGENTS.md` makes this binding for all three
 agents, and a test enforces that every skill has one.
 
 **Toolbox skills** sit outside the sequence and are called when needed:
-`react-component`, `react-publish`, `react-feedback`, `react-update`,
+`react-component`, `react-publish`, `react-parallel`, `react-feedback`, `react-update`,
 `react-i18n`, `react-theme`.
 
 Stage 2 is skippable when you already know the next feature. There is no
@@ -155,6 +155,8 @@ for the shared layer.
 | `react-dev doctor [path]` | Check a project against 40 invariants the workflow depends on, including template drift and missing capabilities |
 | `react-dev sync [path]` | Re-install skills and agent wiring; never touches `AGENTS.md`. `--with-template` also updates untouched template files |
 | `react-dev status [path]` | Where every feature sits in the 11-stage pipeline, and the next command to run |
+| `react-dev next [path]` | Start a **fresh agent session** on the next step — the only way to clear context automatically, since no hook can |
+| `react-dev parallel [path]` | Which features can be built at once (module = the lock), and why the rest cannot |
 
 Inside a generated project:
 

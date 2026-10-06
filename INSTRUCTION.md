@@ -329,6 +329,60 @@ then tells you which feature is now possible next.
 
 ---
 
+## Giving the assistant a clean slate
+
+The assistant remembers everything said so far in the session. That is useful
+while you build one thing and a liability once you move to the next: the old
+conversation crowds out the new one and the answers get worse.
+
+You clear it by typing:
+
+```
+/clear
+```
+
+**Only in three places**, and the assistant tells you when you reach them:
+
+| After                              | Why                                                                     |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| **Step 1** (`/react-constitution`) | The rules are written to a file the assistant always reads anyway       |
+| **Step 2** (`/react-roadmap`)      | The plan is saved; planning a whole product is a very long conversation |
+| **Step 11** (`/react-merge`)       | The feature is finished and everything about it is saved                |
+
+**Never in the middle of a feature.** Steps 3 to 10 are one piece of work: the
+decisions you made in step 5 are what step 7 builds from. Clearing there throws
+them away and the assistant guesses again, worse.
+
+The simple test: _would you have to explain the last task to a new person before
+asking them to start this one?_ If no — clear. If yes — do not.
+
+If a single feature runs very long and the assistant starts slowing down, there
+is a gentler option that summarises instead of forgetting:
+
+```
+/compact
+```
+
+Use that one **while** working on something; use `/clear` **between** things.
+
+### Letting it happen by itself
+
+You can skip remembering any of this:
+
+```
+react-dev next
+```
+
+It looks at where your project is, closes nothing, and opens a **brand new
+assistant session** already pointed at your next step. A new session has no
+memory of the old one by definition, so the clean slate is automatic rather than
+something you have to do at the right moment.
+
+One honest limit, and it tells you: only what is **written into files** comes
+along. At a feature boundary that is everything. In the middle of a feature, if
+you just agreed something in chat that nobody wrote down, say it again or write
+it down first.
+
 ## If you get lost
 
 Type this in the Terminal where you are **not** running the site:

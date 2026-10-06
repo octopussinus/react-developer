@@ -13,6 +13,7 @@ and Gemini CLI, with a verification gate and a feedback loop that closes.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -32,6 +33,8 @@ from .project import (
     diagnose,
     file_hashes,
     current_branch,
+    FeatureStatus,
+    parallel_batch,
     pipeline_status,
     prerequisite_status,
     read_manifest,
@@ -56,6 +59,7 @@ WORKFLOW_ORDER = [
     "react-implement",
     "react-component",
     "react-publish",
+    "react-parallel",
     "react-verify",
     "react-analyze",
     "react-review",
@@ -746,6 +750,131 @@ def status(
             f"([bold]{nxt.slug}[/bold])" if nxt
             else "[green]Every planned feature is merged.[/green]"
         )
+
+
+@app.command()
+def parallel(
+    path: Path = typer.Argument(Path.cwd(), help="Project to plan for."),
+    limit: int = typer.Option(3, "--limit", help="Most features to build at once."),
+):
+    """Which features can honestly be built at the same time, and why not the rest.
+
+    Claim-plane selection: the module is the lock. Worktrees isolate files, not
+    meaning -- two pages of one module share its components and types, and two
+    agents editing one file merge cleanly into something that does not build.
+    """
+    plan = parallel_batch(path, limit=limit)
+
+    if not plan.batch and not plan.excluded:
+        console.print("[yellow]No roadmap found.[/yellow] Run react-roadmap first.")
+        raise typer.Exit(1)
+
+    if plan.batch:
+        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+        table.add_column("#", width=3, justify="right")
+        table.add_column("Feature", no_wrap=True)
+        table.add_column("Start with", style="cyan", no_wrap=True)
+        for feature in plan.batch:
+            table.add_row(str(int(feature.number)), feature.slug, feature.next_command)
+        console.print(
+            Panel(table, title=f"Safe to build in parallel — {len(plan.batch)}",
+                  border_style="green", padding=(1, 2))
+        )
+    else:
+        console.print("[yellow]Nothing can start in parallel right now.[/yellow]")
+
+    if plan.excluded:
+        held = Table(show_header=False, box=None, padding=(0, 2))
+        held.add_column(width=3, justify="right")
+        held.add_column(width=18, no_wrap=True)
+        held.add_column(style="bright_black")
+        for feature, reason in plan.excluded[:12]:
+            held.add_row(str(int(feature.number)), feature.slug, reason)
+        console.print(Panel(held, title="Held back", border_style="bright_black", padding=(1, 2)))
+
+    console.print(
+        "[bright_black]Merging stays single-lane: one lands, the rest rebase and "
+        "re-run the gate. A clean merge is not a working one.[/bright_black]"
+    )
+
+
+@app.command("next")
+def next_step(
+    path: Path = typer.Argument(Path.cwd(), help="Project to work in."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the command, run nothing."),
+):
+    """Start a FRESH agent session on the next pipeline step.
+
+    Context cannot be cleared from inside a session: no hook can do it, and a
+    skill can only suggest `/clear`. A new process can, which is the whole point
+    of this command -- the clean slate is structural rather than something you
+    have to remember at the right moment.
+    """
+    features = pipeline_status(path)
+    if not features:
+        console.print(
+            "[yellow]No roadmap found.[/yellow] Run the react-roadmap skill first, "
+            "or react-feature <name> to start one directly."
+        )
+        raise typer.Exit(1)
+
+    active = [f for f in features if f.stage not in ("merged", "planned")]
+    target = active[0] if active else next_planned(features)
+    if target is None:
+        console.print("[green]Every planned feature is merged.[/green] Nothing to start.")
+        raise typer.Exit()
+
+    command = target.next_command
+    # The priming message is what the fresh session starts from, so it has to
+    # carry everything a blank context lacks: which feature, and where it is.
+    prompt = (
+        f"/{command}" if command.startswith("react-") and " " not in command
+        else f"/{command.split(' ')[0]} {' '.join(command.split(' ')[1:])}".strip()
+    )
+
+    # Every stage reads its input from `specs/`, which is why a fresh session
+    # works at all -- but it is also the limit, and saying so is the difference
+    # between a tool you can trust and one that quietly loses a decision.
+    boundary = target.stage in ("planned", "merged")
+    console.print(
+        Panel(
+            f"feature [bold]{int(target.number)} {target.slug}[/bold] — {target.stage}\n"
+            f"{target.detail}\n\n"
+            f"fresh session, starting with: [cyan]{prompt}[/cyan]\n\n"
+            + (
+                "[bright_black]A feature boundary: nothing from the last one is "
+                "needed here.[/bright_black]"
+                if boundary
+                else "[yellow]Mid-feature.[/yellow] [bright_black]Only what is in "
+                "specs/ carries over. If you just agreed something in chat that is "
+                "not written down, record it first.[/bright_black]"
+            ),
+            title="Next step, clean context",
+            border_style="cyan" if boundary else "yellow",
+            padding=(1, 2),
+        )
+    )
+
+    if dry_run:
+        console.print(f"[bright_black]--dry-run:[/bright_black] claude {prompt!r}")
+        raise typer.Exit()
+
+    claude = shutil.which("claude")
+    if claude is None:
+        console.print(
+            "[yellow]`claude` is not on PATH.[/yellow] Start your agent yourself and "
+            f"run: [cyan]{prompt}[/cyan]"
+        )
+        raise typer.Exit(1)
+
+    # exec, not run: the agent replaces this process, so there is no wrapper
+    # sitting between you and it, and Ctrl-C behaves the way you expect.
+    os.chdir(path)
+    os.execv(claude, [claude, prompt])
+
+
+def next_planned(features: list[FeatureStatus]) -> FeatureStatus | None:
+    return next((f for f in features if f.stage == "planned"), None)
 
 
 @app.command()

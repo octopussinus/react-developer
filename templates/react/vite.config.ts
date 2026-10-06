@@ -10,6 +10,8 @@ import { feedbackPlugin } from './tools/feedback-plugin.mjs';
 import { componentMapPlugin } from './tools/component-map-plugin.mjs';
 // @ts-expect-error -- plain .mjs dev plugin, no types needed
 import { routeGraphPlugin } from './tools/route-graph.mjs';
+// @ts-expect-error -- plain .mjs helper, no types needed
+import { devPort } from './tools/dev-port.mjs';
 
 export default defineConfig({
   plugins: [
@@ -34,6 +36,14 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
+    /*
+     * One port per checkout, and `strictPort` so a taken one is an ERROR.
+     * Vite's default is to pick the next free port silently, which is exactly
+     * how a second worktree ends up serving on 5174 while Playwright keeps
+     * testing whatever still holds 5173.
+     */
+    port: devPort(),
+    strictPort: true,
     // Prototypes under specs/ are served by the real dev server so they get the
     // project's own Tailwind build and @theme tokens -- never a CDN.
     fs: { allow: ['.'] },

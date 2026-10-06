@@ -74,8 +74,28 @@ route around.
 Files created vs modified, the `tasks.md` state, the `react-verify` result, and
 anything in the spec you could not implement — with the reason.
 
+## Do not stop at the code — run the checks yourself
+
+When the implementation is done, **continue straight into `react-verify`, then
+`react-analyze`, then `react-review`** without waiting to be asked. All three take
+their input from files you just wrote, all three are read-mostly, and making the
+user type three commands to find out whether your own work holds up is a chore
+you created.
+
+Delegate each to its subagent (`react-verify`, `react-analyze`, `react-review`)
+so their output stays out of this conversation and only the verdicts come back.
+
+**Stop the chain the moment something is red**, and say what. A failing gate is
+the signal to fix, not to carry on to the next stage and report both. The point
+of the chain is to reach `react-ship` with everything green, or to stop early
+with one clear reason.
+
+`react-ship` and `react-merge` are NOT part of this. They commit, push and land
+work, and nobody should discover their branch was pushed because a chain ran on.
+
 ## Next
 
-> **Stage 6 of 11 complete.** N files created, M modified, `tasks.md` fully ticked.
-> **Do next:** `react-verify` — nothing downstream trusts an unverified branch.
-> **Something in the spec you could not build?** Say which, and why, before verifying.
+> **Stages 6–9 complete.** N files created, M modified, `tasks.md` ticked, gates
+> green, no drift, review findings: B blockers.
+> **Do next:** `react-ship` — opens the PR. The checks already ran.
+> **Stopped early?** Say which stage went red and what the one fix is.
