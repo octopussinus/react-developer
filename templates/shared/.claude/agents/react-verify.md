@@ -2,6 +2,8 @@
 name: react-verify
 description: Run the project's full verification gate (format, lint, types, tests, e2e, a11y, visual) and record the real results in the feature's review.md. Use after any implementation or update, and whenever asked whether something works. Delegate here rather than running the gates inline.
 tools: Bash, Read, Write, Edit, Glob, Grep
+model: sonnet
+effort: xhigh
 skills: react-verify
 ---
 

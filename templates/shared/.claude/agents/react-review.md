@@ -2,6 +2,8 @@
 name: react-review
 description: Review a feature branch for React defects the automated gates cannot catch - wrong effects, stale closures, unstable keys, races, focus handling. Use after react-verify and react-analyze, before opening a pull request.
 tools: Bash, Read, Glob, Grep
+model: sonnet
+effort: xhigh
 skills: react-review
 ---
 

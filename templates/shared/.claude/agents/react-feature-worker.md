@@ -2,6 +2,8 @@
 name: react-feature-worker
 description: Build one roadmap feature end to end in an isolated git worktree - branch, spec, implement, then the verify/analyze/review chain. Used by the react-parallel skill when several features are built at once. Never ships or merges.
 tools: Bash, Read, Write, Edit, Glob, Grep
+model: sonnet
+effort: xhigh
 skills: react-feature
 isolation: worktree
 ---

@@ -57,6 +57,23 @@ function pascalFor(file) {
     .join('');
 }
 
+/**
+ * Who owns a file: `module/page` for a page's own code, the module for code it
+ * shares between its pages, or null for anything outside src/modules.
+ *
+ * A folder directly under a module is a PAGE unless it is one of the reserved
+ * names the module owns itself -- which is the same rule the lint boundaries
+ * use, so the overlay and the build agree about what a page is.
+ */
+function ownerOf(relativePath) {
+  const page = /^src\/modules\/([^/]+)\/([^/]+)\//.exec(relativePath);
+  if (page && !RESERVED.has(page[2])) return `${page[1]}/${page[2]}`;
+  const module = /^src\/modules\/([^/]+)\//.exec(relativePath);
+  if (module) return module[1];
+  if (relativePath.startsWith('src/app/')) return 'app';
+  return null;
+}
+
 async function git(root, args) {
   const { stdout } = await run('git', args, { cwd: root, maxBuffer: 8 * 1024 * 1024 });
   return stdout.split('\n').filter(Boolean);

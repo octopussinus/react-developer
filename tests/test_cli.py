@@ -1553,3 +1553,20 @@ def test_parallel_refuses_a_roadmap_with_no_module_column(tmp_path):
         "| 2   | `dogs`   | `profile` | x    | —     | M    | x      |\n"
     )
     assert [f.slug for f in parallel_batch(tmp_path).batch] == ["landing", "profile"]
+
+
+def test_every_subagent_pins_model_and_effort():
+    """Subagents inherit nothing about model choice, so it is set explicitly.
+
+    `sonnet` is the alias, not a pinned id: it tracks the newest Sonnet, which is
+    what "newest" has to keep meaning after the next release.
+    """
+    import re
+
+    agents = sorted((REPO_ROOT / "templates/shared/.claude/agents").glob("*.md"))
+    assert agents, "no subagents found"
+    for agent in agents:
+        front = agent.read_text().split("---")[1]
+        fields = dict(re.findall(r"^(\w+): (.+)$", front, re.M))
+        assert fields.get("model") == "sonnet", f"{agent.stem}: model is {fields.get('model')!r}"
+        assert fields.get("effort") == "xhigh", f"{agent.stem}: effort is {fields.get('effort')!r}"

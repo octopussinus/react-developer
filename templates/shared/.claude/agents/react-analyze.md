@@ -2,6 +2,8 @@
 name: react-analyze
 description: Read-only drift check for a feature - compares spec, code, tests and AGENTS.md, and reports unimplemented requirements, scope creep and violated rules. Use before opening a pull request or when asking whether a feature is really finished.
 tools: Bash, Read, Glob, Grep
+model: sonnet
+effort: xhigh
 skills: react-analyze
 ---
 
