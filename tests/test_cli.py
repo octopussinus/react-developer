@@ -1111,3 +1111,44 @@ def test_storybook_shows_where_each_component_lives_on_disk():
     assert "sb-source-bar" in preview
     # Outside the story tree, so it cannot affect layout or a play function.
     assert "document.body.appendChild" in preview
+
+
+def test_route_graph_is_static_analysis_not_a_model():
+    """The map must be derived from the AST, or it cannot be trusted.
+
+    Checked rather than assumed because the whole value of the feature is that a
+    link appears on the map because it exists in the code. Two correctness traps
+    are pinned here: `push`/`replace` are string methods long before they are
+    navigation (`path.replace(/^\\//, '')` in the api client was read as a
+    redirect), and a parameterised sidebar path is not a reachable root.
+    """
+    source = (REPO_ROOT / "templates/react/tools/route-graph.mjs").read_text()
+    assert "ts-morph" in source, "must use a real AST, not regex"
+    assert "NAV_RECEIVERS" in source, "bare push/replace must not count as navigation"
+    assert "'navigate', 'redirect'" in source
+    assert "n.path.includes(':')" in source, "a param path cannot be a sidebar root"
+    # Dynamic targets are reported, never silently dropped.
+    assert "dynamic: true" in source and "unresolved" in source
+    # Each navigation names the component responsible, or the map tells you a
+    # link exists without telling you where to go and change it.
+    assert "componentFor" in source and "component: componentFor(node)" in source
+
+    ui = (REPO_ROOT / "templates/react/src/dev/route-map.tsx").read_text()
+    for field in ("'From'", "'To'", "'Trigger'", "'How'", "'Component'", "'Source'"):
+        assert field in ui, f"the details panel must show {field}"
+    assert "onEdgeClick" in ui, "an edge must be inspectable"
+    # Runtime-decided targets appear as a node rather than only a footnote.
+    assert "decided at runtime" in ui
+
+    from react_dev.project import REQUIRED_PATHS
+
+    paths = {p for p, _ in REQUIRED_PATHS}
+    assert "tools/route-graph.mjs" in paths
+    assert "src/dev/route-map.tsx" in paths
+
+    pkg = json.loads((REPO_ROOT / "templates/react/package.json").read_text())
+    dev = pkg["devDependencies"]
+    assert "ts-morph" in dev and "@xyflow/react" in dev, (
+        "both are dev-only; the map must never ship to production"
+    )
+    assert "@xyflow/react" not in pkg.get("dependencies", {})

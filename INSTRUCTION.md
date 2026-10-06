@@ -425,6 +425,31 @@ is not a good enough reason, and it will say so.
 
 ---
 
+## Seeing the whole site as a map
+
+The **Map** button, next to Feedback, draws every page of your site and every
+button or link that moves between them:
+
+- a **blue line** is a normal link
+- a **purple dashed line** is a button that navigates when clicked
+- each line is labelled with **the text you actually click**
+- an **amber page** is one nothing links to — usually a mistake worth checking
+- a **lock** means the page needs a permission
+
+**Click any arrow** and a panel tells you exactly what is responsible for that
+jump: the text you click, whether it is a link or a button, **which component
+contains it**, and the **file and line number** — with a button to copy that.
+So the map does not just say "these two pages are connected", it says where to
+go and change it.
+
+Some buttons decide where to go while the app is running, and no amount of
+reading the code can tell you that in advance. Those are drawn as a dashed arrow
+to a **"? decided at runtime"** box rather than hidden — clicking it still shows
+you the component and the line, so you can go and read what it does.
+
+Worth opening after building a few pages: it is the fastest way to spot a page
+you built but forgot to link to from anywhere.
+
 ## Using the same component in another project
 
 Three levels, and the assistant handles the first two by itself:

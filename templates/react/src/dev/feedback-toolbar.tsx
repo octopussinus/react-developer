@@ -259,6 +259,7 @@ export function mountFeedbackToolbar(): void {
       .legend p { margin: 8px 0 0; font-size: 10px; line-height: 1.45; color: #9ca3af; }
     </style>
     <div class="bar">
+      <button type="button" id="map" title="Site map: pages and how they link">Map</button>
       <button type="button" id="inbox" title="Feedback you have sent">List</button>
       <button type="button" id="pick">Feedback</button>
     </div>
@@ -503,6 +504,10 @@ export function mountFeedbackToolbar(): void {
     listPanel.hidden = !next;
     inboxButton.dataset['active'] = String(next);
     if (next) void renderList();
+  });
+
+  (shadow.getElementById('map') as HTMLButtonElement).addEventListener('click', () => {
+    void import('./route-map').then((m) => m.openRouteMap());
   });
 
   mountComponentOverlay(shadow.querySelector('.bar') as HTMLElement, shadow);

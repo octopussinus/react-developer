@@ -434,6 +434,33 @@ naprawdę tego używają, zwykle tworzy komponent, który nie pasuje do żadnej 
 
 ---
 
+## Mapa całej strony
+
+Przycisk **Map**, obok Feedback, rysuje wszystkie strony Twojej witryny i
+wszystkie przyciski oraz odnośniki, które między nimi przenoszą:
+
+- **niebieska linia** to zwykły odnośnik
+- **fioletowa przerywana** to przycisk, który przenosi po kliknięciu
+- każda linia jest podpisana **tekstem, który naprawdę klikasz**
+- **bursztynowa strona** to taka, do której nic nie prowadzi — zwykle warto
+  sprawdzić, czy to nie pomyłka
+- **kłódka** oznacza stronę wymagającą uprawnień
+
+**Kliknij dowolną strzałkę**, a panel pokaże dokładnie, co odpowiada za to
+przejście: tekst, który klikasz, czy to odnośnik czy przycisk, **w którym
+komponencie** się znajduje oraz **plik i numer linii** — z przyciskiem do
+skopiowania. Mapa nie mówi więc tylko „te dwie strony są połączone", ale też gdzie
+pójść i to zmienić.
+
+Część przycisków decyduje, dokąd przejść, dopiero w trakcie działania aplikacji —
+i żadne czytanie kodu tego z góry nie powie. Takie przypadki są rysowane jako
+przerywana strzałka do pudełka **„? decided at runtime"**, a nie ukrywane — po
+kliknięciu dalej zobaczysz komponent i linię, więc możesz pójść i przeczytać, co
+tam się dzieje.
+
+Warto zajrzeć po zbudowaniu kilku stron: to najszybszy sposób, żeby wyłapać
+stronę, którą zrobiłeś, ale zapomniałeś skądkolwiek do niej podlinkować.
+
 ## Użycie tego samego komponentu w innym projekcie
 
 Trzy poziomy — dwa pierwsze asystent ogarnia sam:

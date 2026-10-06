@@ -228,7 +228,13 @@ export default tseslint.config(
   // API, so the api-client rule does not apply. Dev-only: it never ships.
   {
     files: ['src/dev/**'],
-    rules: { 'no-restricted-syntax': 'off' },
+    rules: {
+      'no-restricted-syntax': 'off',
+      // These modules are loaded dynamically behind `import.meta.env.DEV`, so
+      // they are never part of a fast-refresh boundary and the mixed-export
+      // warning has nothing to protect.
+      'react-refresh/only-export-components': 'off',
+    },
   },
 
   // Storybook stories are documentation, not product code: a story may import

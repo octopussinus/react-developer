@@ -37,6 +37,30 @@ then pick **what you want** — optionally with a note — and an entry lands he
 }
 ```
 
+## The `Map` button — the whole site, and how pages connect
+
+Opens a graph of every route and every way the code can navigate between them:
+
+- **Blue solid** edges are `<Link to="…">` / `<NavLink>`
+- **Purple dashed** edges are `navigate('…')` / `redirect('…')`
+- Each edge is labelled with the **text the user clicks**
+- **Click any arrow** and a panel names what is responsible: the trigger text,
+  the form (`<Link to="…">` / `navigate('…')`), the **component**, and the
+  **file:line**, with a copy button
+- An **amber node** is orphaned: nothing links to it and it is not in the sidebar
+- A 🔒 node needs a permission
+
+Targets decided at runtime — `navigate(somePath)` — cannot be known statically,
+so they are drawn as a dashed arrow to a **`? decided at runtime`** node rather
+than omitted. Clicking one still tells you the component and file:line, so you
+can go and read what it does.
+
+This is built by static analysis of the real AST (`tools/route-graph.mjs`, using
+ts-morph), not by asking a model what the links are. A map you cannot trust is
+worse than no map, because you act on it. The trade-off is that the four
+navigation forms above are what it knows; anything more exotic shows up as
+unresolved rather than as a wrong arrow.
+
 ## The `Dev` button — reused vs written for this feature
 
 Next to **Feedback**. It outlines every component on the page and colours it by
