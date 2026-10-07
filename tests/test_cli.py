@@ -408,6 +408,23 @@ def test_doctor_requires_the_feedback_toolbar(made: Path):
     assert checks["src/dev/feedback-toolbar.tsx"].level == "error"
 
 
+def test_doctor_flags_a_dependency_the_dev_tooling_imports(made: Path):
+    """`sync` never installs anything, so a project that predates a dev tool's
+    dependency keeps a button that throws the moment it is pressed. A file-only
+    check cannot see that: the file is there, the import is not."""
+    pkg_path = made / "package.json"
+    pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
+    del pkg["devDependencies"]["@dagrejs/dagre"]
+    pkg_path.write_text(json.dumps(pkg, indent=2), encoding="utf-8")
+
+    checks = {f.check: f for f in diagnose(made, cli_version=__version__)}
+
+    assert checks["@dagrejs/dagre"].level == "error"
+    assert "npm i -D @dagrejs/dagre" in checks["@dagrejs/dagre"].detail
+    # The ones still installed stay quiet.
+    assert checks["ts-morph"].level == "ok"
+
+
 def test_sync_merges_package_json_and_keeps_user_dependencies(made: Path, monkeypatch):
     """Regression: a force-sync once dropped lucide-react and broke a feature."""
     monkeypatch.chdir(made)
@@ -521,6 +538,20 @@ def test_feedback_plugin_only_the_user_can_reach_done():
     assert "'done'" not in create.split("server.middlewares.use")[0]
     # Path traversal: an id is a bare file name or it is rejected.
     assert "includes('..')" in plugin and "includes('/')" in plugin
+
+    # Editing rewords; it does NOT reopen. Silently moving a confirmed entry
+    # back to the inbox on a reword would undo the user's confirmation and lose
+    # the agent's note.
+    edit = plugin.split("action === 'edit'")[1].split("const target =")[0]
+    assert "entry.comment" in edit and "editedAt" in edit
+    assert "rename(" not in edit, "a reword must not change the folder"
+    # Deleting is the one destructive action, and it is the user's alone: the
+    # agent has no path to it, the toolbar asks first.
+    assert "action === 'delete'" in plugin and "rm(found.file)" in plugin
+
+    toolbar = (REPO_ROOT / "templates/react/src/dev/feedback-toolbar.tsx").read_text()
+    assert "window.confirm" in toolbar, "deleting must be confirmed"
+    assert "window.prompt" in toolbar, "editing must prefill what is there"
 
 
 def test_sync_with_template_also_restores_shared_scaffolding(made: Path, monkeypatch):
@@ -1131,7 +1162,20 @@ def test_route_graph_is_static_analysis_not_a_model():
     assert "dynamic: true" in source and "unresolved" in source
     # Each navigation names the component responsible, or the map tells you a
     # link exists without telling you where to go and change it.
-    assert "componentFor" in source and "component: componentFor(node)" in source
+    assert "componentFor" in source and "const component = componentFor(node)" in source
+
+    # A target written as a constant must be followed to its value. No real
+    # codebase writes `to="/orders"`; it writes `to={paths.orders}`, and an
+    # analyser that only reads literals produced 0 edges and 73 mysteries on a
+    # 26-page app -- a blank map that looked like it was working.
+    assert "getDefinitionNodes" in source, "constants must be followed to their value"
+    assert "REDIRECT_COMPONENTS" in source, "<Navigate> is a redirect worth drawing"
+    assert "fromCaller" in source, (
+        "a `to` that comes from a prop is the caller's business, not a mystery"
+    )
+    # The cycle guard keys on both ends: a call and its own callee share a
+    # start position, so keying on the start alone silently resolved nothing.
+    assert "getEnd()" in source
 
     ui = (REPO_ROOT / "templates/react/src/dev/route-map.tsx").read_text()
     for field in ("'From'", "'To'", "'Trigger'", "'How'", "'Component'", "'Source'"):
@@ -1139,8 +1183,16 @@ def test_route_graph_is_static_analysis_not_a_model():
     assert "onEdgeClick" in ui, "an edge must be inspectable"
     # Runtime-decided targets appear as a node rather than only a footnote.
     assert "decided at runtime" in ui
+    # Drawn one page at a time, or 26 pages and 65 arrows is an unreadable
+    # hairball. Clicking a page opens it and reveals where it can go.
+    assert "onNodeClick" in ui and "setOpen" in ui
+    assert "dagre.layout" in ui, "ranking AND crossing minimisation, not hand-rolled BFS"
+    # dagre throws on parallel edges, so two components linking to the same page
+    # blanked the whole map. One arrow per pair of pages, listing both.
+    assert "groupHops" in ui
+    assert "n.component ?? n.label" in ui, "the responsible component labels the arrow"
 
-    from react_dev.project import REQUIRED_PATHS
+    from react_dev.project import REQUIRED_DEV_DEPS, REQUIRED_PATHS
 
     paths = {p for p, _ in REQUIRED_PATHS}
     assert "tools/route-graph.mjs" in paths
@@ -1148,10 +1200,14 @@ def test_route_graph_is_static_analysis_not_a_model():
 
     pkg = json.loads((REPO_ROOT / "templates/react/package.json").read_text())
     dev = pkg["devDependencies"]
-    assert "ts-morph" in dev and "@xyflow/react" in dev, (
-        "both are dev-only; the map must never ship to production"
+    required = {name for name, _ in REQUIRED_DEV_DEPS}
+    assert {"ts-morph", "@xyflow/react", "@dagrejs/dagre"} <= required, (
+        "doctor must flag a project that predates one of these -- `sync` does "
+        "not install dependencies, so the Map button would throw on click"
     )
-    assert "@xyflow/react" not in pkg.get("dependencies", {})
+    for name in required:
+        assert name in dev, f"{name} must be dev-only; the map never ships"
+        assert name not in pkg.get("dependencies", {})
 
 
 def test_every_project_ships_three_themes_and_two_locales():
@@ -1601,3 +1657,97 @@ def test_the_gate_itself_still_forbids_weakening():
     verify = (REPO_ROOT / "skills" / "react-verify" / "SKILL.md").read_text()
     assert "no `eslint-disable`" in verify
     assert "no lowered coverage threshold" in verify
+
+
+def test_subagents_are_granted_the_mcp_servers_their_skills_use():
+    """`tools` is an allowlist and it excludes MCP tools as well.
+
+    Naming built-ins without naming the servers does not error -- the agent just
+    cannot see Stitch or drive a browser, and carries on building from prose.
+    That is the expensive kind of silent, so each server a skill actually calls
+    is listed explicitly.
+    """
+    import re
+
+    agents = REPO_ROOT / "templates/shared/.claude/agents"
+
+    def tools_of(name):
+        front = (agents / f"{name}.md").read_text().split("---")[1]
+        return dict(re.findall(r"^(\w+): (.+)$", front, re.M))["tools"]
+
+    # The gate drives a browser for a11y and visual.
+    assert "mcp__playwright__*" in tools_of("react-verify")
+    # Focus order and live regions can only be checked in a running browser.
+    assert "mcp__playwright__*" in tools_of("react-review")
+    # The worker runs react-spec (Stitch), the verify chain (Playwright) and
+    # react-component (shadcn registry).
+    worker = tools_of("react-feature-worker")
+    for server in ("mcp__stitch__*", "mcp__playwright__*", "mcp__shadcn__*"):
+        assert server in worker, f"the worker cannot reach {server}"
+
+    # Static analysis needs no browser; granting one would only widen its reach.
+    assert "mcp__" not in tools_of("react-analyze")
+
+
+def test_parallel_requires_design_assets_to_be_committed_first():
+    """A worktree branches from main: uncommitted files do not exist in it."""
+    skill = (REPO_ROOT / "skills" / "react-parallel" / "SKILL.md").read_text()
+    assert "Commit anything the workers need" in skill
+    assert "builds from the prose" in skill
+
+
+def test_a_worker_installs_dependencies_before_anything_else():
+    """A worktree is a fresh checkout and node_modules is gitignored.
+
+    Without this the first gate fails on `prettier: not found` before reaching
+    anything real -- verified by making a worktree and running the gate in it.
+    `npm ci` rather than `npm install`: it installs exactly the lockfile and
+    errors when package.json and the lock disagree.
+    """
+    worker = (REPO_ROOT / "templates/shared/.claude/agents/react-feature-worker.md").read_text()
+    assert "npm ci" in worker
+    assert "node_modules" in worker and "gitignored" in worker
+
+    # And again after the rebase, which can pull in a dependency the base gained.
+    skill = (REPO_ROOT / "skills" / "react-parallel" / "SKILL.md").read_text()
+    assert "npm ci && npm run verify" in skill
+
+
+def test_a_finished_prerequisite_stops_blocking(tmp_path):
+    """Prerequisites carry a status; a `P<n>` in Needs is not blocking forever.
+
+    Treating every `P<n>` as permanent meant a project that had FINISHED all of
+    them could never start anything in parallel, and the only way out was
+    hand-editing every feature file to delete the reference -- which erases the
+    record of what the feature actually depended on. Found on a real project
+    with all seven prerequisites done and nothing able to start.
+    """
+    from react_dev.project import parallel_batch
+
+    specs = tmp_path / "specs"
+    (specs / "roadmap").mkdir(parents=True)
+
+    def write_index(p1_status, p2_status):
+        (specs / "ROADMAP.md").write_text(
+            "| #  | What             | Blocks | Status |\n"
+            "| -- | ---------------- | ------ | ------ |\n"
+            f"| P1 | OpenAPI contract | all    | {p1_status} |\n"
+            f"| P2 | Brand tokens     | all UI | {p2_status} |\n"
+            "\n"
+            "| #   | Module   | Page      | What | Needs | Size | Detail |\n"
+            "| --- | -------- | --------- | ---- | ----- | ---- | ------ |\n"
+            "| 1   | `public` | `landing` | x    | P1    | S    | x      |\n"
+        )
+
+    (specs / "roadmap" / "001-landing.md").write_text(
+        "# Landing\n\nSize **S** · Needs **P1**\n"
+    )
+
+    write_index("open", "open")
+    plan = parallel_batch(tmp_path)
+    assert plan.batch == []
+    assert any("P1" in why for _, why in plan.excluded)
+
+    # Mark it done in the index -- the feature file is untouched.
+    write_index("✅ done", "open")
+    assert [f.slug for f in parallel_batch(tmp_path).batch] == ["landing"]

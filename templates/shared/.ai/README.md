@@ -39,16 +39,28 @@ then pick **what you want** — optionally with a note — and an entry lands he
 
 ## The `Map` button — the whole site, and how pages connect
 
-Opens a graph of every route and every way the code can navigate between them:
+Opens a graph of every route and every way the code can navigate between them.
 
-- **Blue solid** edges are `<Link to="…">` / `<NavLink>`
-- **Purple dashed** edges are `navigate('…')` / `redirect('…')`
-- Each edge is labelled with the **text the user clicks**
-- **Click any arrow** and a panel names what is responsible: the trigger text,
-  the form (`<Link to="…">` / `navigate('…')`), the **component**, and the
-  **file:line**, with a copy button
+It starts at `/` and **opens one page at a time**: a page with exits shows `▸`
+and how many (`▸ +6`), and clicking it reveals exactly where it can go. Drawing
+all 26 pages and 65 arrows at once is a hairball in which the one thing you came
+to answer — where does THIS page go? — is the thing you cannot see. `Expand all`
+and `Collapse` are in the top-left.
+
+- Every arrow is labelled with **the component responsible for it**
+- **Blue** edges are links; **purple** edges are redirects that fire by themselves
+- **Click any arrow** for the rest: the trigger text, the form
+  (`<Link to="…">` / `navigate('…')`), the component, and the **file:line**,
+  with a copy button
+- A redirect's trigger is its **condition** (`if status === 'unauthenticated'`),
+  because nobody clicks a redirect
 - An **amber node** is orphaned: nothing links to it and it is not in the sidebar
 - A 🔒 node needs a permission
+
+Targets are followed through constants and builders, which is how paths are
+actually written: `to={paths.orders}`, `to={orderLinks.detail(id)}`,
+`<LinkCta to={…}>`. An analyser that only understood string literals drew an
+empty map on a real app and looked like it was working.
 
 Targets decided at runtime — `navigate(somePath)` — cannot be known statically,
 so they are drawn as a dashed arrow to a **`? decided at runtime`** node rather
@@ -88,7 +100,7 @@ the rule of three.
 With no git repo, or on the base branch itself, it says so and shows location
 only rather than claiming everything is pre-existing.
 
-## Nothing is deleted — entries move between three folders
+## The folder IS the status — entries move between three of them
 
 | Folder     | Means                                                   | Who puts it there             |
 | ---------- | ------------------------------------------------------- | ----------------------------- |
@@ -100,6 +112,14 @@ The **List** button next to Feedback shows all of them with their status. An
 entry in `working/` carries the agent's note — what it changed and what to look
 at — above a **Yes, done / Not fixed** pair. "Not fixed" sends it back to
 `inbox/` and strips that note, so the next attempt starts clean.
+
+Every entry also has **Edit** and **Delete**, at any stage and for you only:
+
+- **Edit** rewords the `comment` and sets `editedAt`. It deliberately does NOT
+  change the folder — rewording a report does not change whether it is done, and
+  silently reopening it would throw away the agent's note.
+- **Delete** removes the file. It asks first, and it is the only destructive
+  action anywhere in this system.
 
 **The agent can never close its own feedback.** It cannot write to `done/` and it
 never reads it. That matters because the only honest test of "is it fixed" is a

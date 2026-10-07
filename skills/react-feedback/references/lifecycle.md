@@ -8,7 +8,10 @@ Three folders, and **the folder is the status**:
 | `.ai/working/` | You claimed it, or finished and are awaiting the user's word | **you** |
 | `.ai/done/` | The user confirmed it is actually fixed | **only the user**, from the toolbar |
 
-Nothing is ever deleted.
+**You never delete an entry, and you never edit its text.** The user can do both
+from the toolbar; you cannot. An entry you find unclear is one you ask about —
+rewriting someone's report of a problem into your reading of it is how the
+problem itself gets lost.
 
 ## Claim before you work
 

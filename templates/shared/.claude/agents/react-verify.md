@@ -1,7 +1,7 @@
 ---
 name: react-verify
 description: Run the project's full verification gate (format, lint, types, tests, e2e, a11y, visual) and record the real results in the feature's review.md. Use after any implementation or update, and whenever asked whether something works. Delegate here rather than running the gates inline.
-tools: Bash, Read, Write, Edit, Glob, Grep
+tools: Bash, Read, Write, Edit, Glob, Grep, mcp__playwright__*
 model: sonnet
 effort: xhigh
 skills: react-verify
@@ -21,3 +21,7 @@ raw output back; it is in the terminal and in review.md.
 The one rule that outranks brevity: **only claims you ran a command to support.**
 An unverified "looks good" from a fresh context is worse than silence, because
 nobody else saw the output either.
+
+`tools` is an ALLOWLIST and it excludes MCP tools too, so the Playwright server
+is named explicitly. Without it this agent cannot drive a browser, and the a11y
+and visual parts of the gate would quietly become "ran the CLI and hoped".

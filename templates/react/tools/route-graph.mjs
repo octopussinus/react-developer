@@ -34,6 +34,8 @@ const NAV_CALLS = new Set(['navigate', 'redirect']);
 const NAV_RECEIVERS = new Set(['navigate', 'history', 'router']);
 const RECEIVER_METHODS = new Set(['push', 'replace', 'navigate']);
 const LINK_COMPONENTS = new Set(['Link', 'NavLink']);
+/** `<Navigate to=… replace />` is a redirect: it fires without anyone clicking. */
+const REDIRECT_COMPONENTS = new Set(['Navigate']);
 
 /** `/orders/:id` and `/orders/42` are the same node on the map. */
 function normalise(path) {
@@ -53,6 +55,216 @@ function matchRoute(target, routePaths) {
       return parts.every((part, i) => part.startsWith(':') || part === segments[i]);
     }) ?? null
   );
+}
+
+/**
+ * Follow a reference to the expressions it could actually hold.
+ *
+ * Without this the map is useless on a real codebase. Nothing here writes
+ * `to="/dashboard"`; it writes `to={authPaths.dashboard}`, because a path
+ * repeated as a literal in nine files is how a rename breaks three of them. So
+ * the analyser has to do what the reader does -- open the constant -- or every
+ * single arrow comes back "decided at runtime". On this project that was 0
+ * resolved edges and 73 unresolved, i.e. a blank map.
+ *
+ * Returns TERMINAL expressions (literals, object literals, anything it cannot
+ * follow further), not strings: the caller decides what counts as a path.
+ */
+const MAX_FOLLOW = 8;
+
+/**
+ * Identity of a node, for the cycle guard.
+ *
+ * Both ends matter: `getPos()` includes leading trivia, so a call and its own
+ * callee (`paths.dogs(id)` / `paths.dogs`) start at the SAME position. Keying on
+ * the start alone made the guard treat the callee as already-seen and return
+ * nothing, which silently turned every link builder back into "runtime".
+ */
+function key(node) {
+  return `${node.getSourceFile().getFilePath()}:${String(node.getPos())}:${String(node.getEnd())}`;
+}
+
+/** Declarations a name points at, through imports, or [] when unknowable. */
+function definitionsOf(node) {
+  const name = Node.isPropertyAccessExpression(node)
+    ? node.getNameNode()
+    : Node.isIdentifier(node)
+      ? node
+      : null;
+  if (!name || typeof name.getDefinitionNodes !== 'function') return [];
+  try {
+    return name.getDefinitionNodes();
+  } catch {
+    // Unresolvable symbol (a type-only or generated name). Not an error here:
+    // the caller reports it as runtime-decided, which is the honest answer.
+    return [];
+  }
+}
+
+function returnedExpressions(fn) {
+  if (Node.isArrowFunction(fn)) {
+    const body = fn.getBody();
+    if (!Node.isBlock(body)) return [body];
+  }
+  const body = fn.getBody?.();
+  if (!body || !Node.isBlock(body)) return [];
+  return body
+    .getDescendantsOfKind(SyntaxKind.ReturnStatement)
+    .map((statement) => statement.getExpression())
+    .filter(Boolean);
+}
+
+function valuesOf(node, seen = new Set(), depth = 0) {
+  if (!node || depth > MAX_FOLLOW) return [];
+  const id = key(node);
+  if (seen.has(id)) return [];
+  seen.add(id);
+  const next = (child) => valuesOf(child, seen, depth + 1);
+
+  if (
+    Node.isParenthesizedExpression(node) ||
+    Node.isAsExpression(node) ||
+    Node.isSatisfiesExpression(node) ||
+    Node.isNonNullExpression(node)
+  ) {
+    return next(node.getExpression());
+  }
+
+  // Both branches are real destinations: `next ?? paths.dashboard` can go to
+  // either, and showing one of them would be a map that lies by omission.
+  if (Node.isConditionalExpression(node)) {
+    return [...next(node.getWhenTrue()), ...next(node.getWhenFalse())];
+  }
+  if (Node.isBinaryExpression(node)) {
+    const operator = node.getOperatorToken().getText();
+    if (operator === '??' || operator === '||') {
+      return [...next(node.getLeft()), ...next(node.getRight())];
+    }
+    return [node];
+  }
+
+  if (Node.isIdentifier(node) || Node.isPropertyAccessExpression(node)) {
+    const out = [];
+    for (const definition of definitionsOf(node)) {
+      if (Node.isVariableDeclaration(definition) || Node.isPropertyAssignment(definition)) {
+        out.push(...next(definition.getInitializer()));
+      } else if (Node.isFunctionDeclaration(definition)) {
+        out.push(definition);
+      }
+    }
+    // A property whose symbol does not resolve to a literal -- `access.to`,
+    // where `access` is a discriminated union -- is still followable through
+    // the value its base actually holds.
+    if (out.length === 0 && Node.isPropertyAccessExpression(node)) {
+      const wanted = node.getName();
+      for (const base of next(node.getExpression())) {
+        if (!Node.isObjectLiteralExpression(base)) continue;
+        const property = base.getProperty(wanted);
+        if (Node.isPropertyAssignment(property)) out.push(...next(property.getInitializer()));
+      }
+    }
+    return out.length > 0 ? out : [node];
+  }
+
+  // `shopLinks.category(id)` -> whatever the builder returns.
+  if (Node.isCallExpression(node)) {
+    const out = [];
+    for (const callee of valuesOf(node.getExpression(), seen, depth + 1)) {
+      if (Node.isArrowFunction(callee) || Node.isFunctionDeclaration(callee)) {
+        for (const returned of returnedExpressions(callee)) out.push(...next(returned));
+      }
+    }
+    return out.length > 0 ? out : [node];
+  }
+
+  return [node];
+}
+
+/**
+ * `` `/dogs/${id}` `` -> `/dogs/:id`, so it matches the registry's pattern.
+ *
+ * A span that is itself a constant is INLINED rather than turned into a param:
+ * `` `${CATEGORIES}/${encodeURIComponent(id)}` `` is `/shop/categories/:id`, and
+ * treating the prefix as a param produced `:CATEGORIES/:param`, which starts
+ * with no slash and was therefore dropped without a word.
+ */
+function patternOf(template, depth = 0) {
+  let out = template.getHead().getLiteralText();
+  for (const span of template.getTemplateSpans()) {
+    const expression = span.getExpression();
+    const literals = depth < MAX_FOLLOW ? stringsOf(expression, depth + 1) : [];
+    if (literals.length === 1) {
+      out += literals[0];
+    } else {
+      const text = expression.getText();
+      out += `:${/^[A-Za-z_$][\w$]*$/.test(text) ? text : 'param'}`;
+    }
+    out += span.getLiteral().getLiteralText();
+  }
+  return out;
+}
+
+/** The string values an expression can hold, ignoring anything non-literal. */
+function stringsOf(node, depth = 0) {
+  const out = [];
+  for (const value of valuesOf(node)) {
+    if (Node.isStringLiteral(value) || Node.isNoSubstitutionTemplateLiteral(value)) {
+      out.push(value.getLiteralValue());
+    } else if (Node.isTemplateExpression(value)) {
+      out.push(patternOf(value, depth));
+    }
+  }
+  return [...new Set(out)];
+}
+
+/** Is this name a prop or a destructured prop -- i.e. the caller's business? */
+function fromCaller(node) {
+  if (!Node.isIdentifier(node)) return false;
+  return definitionsOf(node).some(
+    (definition) => Node.isParameterDeclaration(definition) || Node.isBindingElement(definition),
+  );
+}
+
+/**
+ * Where a `to=` / `navigate()` argument can land.
+ *
+ * Four outcomes, and the distinctions are what keep the map honest:
+ * `paths` resolved; `dynamic` genuinely unknowable; `samePage` not navigation at
+ * all (`to={{ search }}`, `navigate(-1)`); `fromProp` supplied by whoever
+ * renders this component -- which is NOT a mystery, because that caller is
+ * analysed too and its edge is the real one.
+ */
+function destinationsOf(node) {
+  const paths = [];
+  let dynamic = false;
+  let samePage = false;
+  let fromProp = false;
+
+  for (const value of valuesOf(node)) {
+    if (Node.isStringLiteral(value) || Node.isNoSubstitutionTemplateLiteral(value)) {
+      paths.push(value.getLiteralValue());
+    } else if (Node.isTemplateExpression(value)) {
+      paths.push(patternOf(value));
+    } else if (Node.isObjectLiteralExpression(value)) {
+      // A `to={{ pathname, search }}` object: only `pathname` changes the page.
+      const pathname = value.getProperty('pathname');
+      if (Node.isPropertyAssignment(pathname)) {
+        const inner = destinationsOf(pathname.getInitializer());
+        paths.push(...inner.paths);
+        dynamic = dynamic || inner.dynamic;
+      } else {
+        samePage = true;
+      }
+    } else if (Node.isNumericLiteral(value) || Node.isPrefixUnaryExpression(value)) {
+      // `navigate(-1)` is history, not a route.
+      samePage = true;
+    } else if (fromCaller(value)) {
+      fromProp = true;
+    } else {
+      dynamic = true;
+    }
+  }
+  return { paths, dynamic, samePage, fromProp };
 }
 
 /**
@@ -102,13 +314,35 @@ function componentFor(node) {
   return null;
 }
 
-function labelFor(node) {
+/**
+ * What makes a redirect fire, as the condition that guards it.
+ *
+ * Nobody clicks a `<Navigate>`, so there is no link text to show -- and falling
+ * back to the enclosing function printed the component's own name twice. The
+ * `if` or `case` around it is the actual answer to "why did it send me here".
+ */
+function conditionFor(node) {
+  const guard = node.getFirstAncestor(
+    (a) => Node.isIfStatement(a) || Node.isCaseClause(a) || Node.isConditionalExpression(a),
+  );
+  if (Node.isIfStatement(guard)) return `if ${guard.getExpression().getText()}`;
+  if (Node.isCaseClause(guard)) return `case ${guard.getExpression().getText()}`;
+  if (Node.isConditionalExpression(guard)) return `when ${guard.getCondition().getText()}`;
+  return null;
+}
+
+function labelFor(node, kind) {
   // The element this attribute or call actually belongs to.
   const owner = node.getFirstAncestor(
     (a) => Node.isJsxElement(a) || Node.isJsxSelfClosingElement(a),
   );
   const text = Node.isJsxElement(owner) ? visibleText(owner) : null;
   if (text) return text.slice(0, 40);
+
+  if (kind === 'redirect') {
+    const condition = conditionFor(node);
+    if (condition) return condition.replace(/\s+/g, ' ').slice(0, 48);
+  }
 
   const fn = node.getFirstAncestor(
     (a) =>
@@ -121,35 +355,45 @@ function collectNavigations(sourceFile, routePaths, root) {
   const found = [];
   const file = relative(root, sourceFile.getFilePath()).split('\\').join('/');
 
-  const record = (rawTarget, node, kind, dynamic = false) => {
+  /**
+   * One AST site can yield several destinations; each is its own edge.
+   *
+   * `strict` says whether an unresolved target is worth drawing. For a real
+   * `<Link>` it is -- "this page goes somewhere we cannot name" is a fact. For a
+   * component that merely happens to take a `to` prop it is not: a date range's
+   * `to={until}` would become an arrow to a mystery that does not exist.
+   */
+  const record = (node, kind, source, strict = true) => {
+    const { paths, dynamic, samePage, fromProp } = destinationsOf(source);
     const line = node.getStartLineNumber();
-    if (dynamic) {
+    const label = labelFor(node, kind);
+    const component = componentFor(node);
+
+    for (const raw of paths) {
+      const target = normalise(raw);
+      if (!target) continue;
       found.push({
-        to: null,
-        dynamic: true,
+        to: matchRoute(target, routePaths),
+        raw: target,
+        dynamic: false,
         kind,
-        label: labelFor(node),
-        component: componentFor(node),
+        label,
+        component,
         file,
         line,
       });
-      return;
     }
-    const target = normalise(rawTarget);
-    if (!target) return;
-    found.push({
-      to: matchRoute(target, routePaths),
-      raw: target,
-      dynamic: false,
-      kind,
-      label: labelFor(node),
-      component: componentFor(node),
-      file,
-      line,
-    });
+    // Only unknown when nothing at all resolved: a `?? fallback` that gave one
+    // real path has already told you what you needed. `fromProp` is excluded on
+    // purpose -- the caller's own edge carries the answer -- and so is an
+    // `<a href={…}>`, which in this project means a file or an external URL,
+    // never a route.
+    if (strict && dynamic && paths.length === 0 && !samePage && !fromProp && kind !== 'anchor') {
+      found.push({ to: null, dynamic: true, kind, label, component, file, line });
+    }
   };
 
-  // <Link to="..."> / <NavLink to="...">
+  // <Link to=…> / <NavLink to=…> / <Navigate to=…> / <a href=…>
   for (const attribute of sourceFile.getDescendantsOfKind(SyntaxKind.JsxAttribute)) {
     const name = attribute.getNameNode().getText();
     if (name !== 'to' && name !== 'href') continue;
@@ -158,24 +402,31 @@ function collectNavigations(sourceFile, routePaths, root) {
       (a) => Node.isJsxOpeningElement(a) || Node.isJsxSelfClosingElement(a),
     );
     const tag = owner?.getTagNameNode().getText() ?? '';
-    const isLink = LINK_COMPONENTS.has(tag) || tag === 'a';
-    if (!isLink) continue;
+    // A `to` on a custom component counts too. Every real codebase wraps the
+    // router's Link (`<LinkCta to={paths.signIn}>`), and only matching `Link`
+    // literally left the landing page looking like a dead end.
+    const wrapper =
+      /^[A-Z]/.test(tag) && !LINK_COMPONENTS.has(tag) && !REDIRECT_COMPONENTS.has(tag);
+    const kind = REDIRECT_COMPONENTS.has(tag)
+      ? 'redirect'
+      : tag === 'a'
+        ? 'anchor'
+        : LINK_COMPONENTS.has(tag) || wrapper
+          ? 'link'
+          : null;
+    if (kind === null) continue;
 
     const initializer = attribute.getInitializer();
-    if (Node.isStringLiteral(initializer)) {
-      record(initializer.getLiteralValue(), attribute, tag === 'a' ? 'anchor' : 'link');
-    } else if (initializer) {
-      const inner = initializer.getFirstDescendantByKind(SyntaxKind.StringLiteral);
-      // `to={'/x'}` is still static; `to={path}` is not.
-      if (inner && initializer.getText().replace(/[{}'"\s]/g, '') === inner.getLiteralValue()) {
-        record(inner.getLiteralValue(), attribute, 'link');
-      } else {
-        record(null, attribute, 'link', true);
-      }
-    }
+    if (!initializer) continue;
+    record(
+      attribute,
+      kind,
+      Node.isJsxExpression(initializer) ? initializer.getExpression() : initializer,
+      !wrapper,
+    );
   }
 
-  // navigate('/x') / redirect('/x')
+  // navigate('/x') / redirect(paths.x) / history.push(…)
   for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const expression = call.getExpression();
     let name;
@@ -191,8 +442,7 @@ function collectNavigations(sourceFile, routePaths, root) {
 
     const [first] = call.getArguments();
     if (!first) continue;
-    if (Node.isStringLiteral(first)) record(first.getLiteralValue(), call, name);
-    else record(null, call, name, true);
+    record(call, name, first);
   }
 
   return found;

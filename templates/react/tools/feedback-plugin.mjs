@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -11,9 +11,9 @@ import { join } from 'node:path';
  *   .ai/working/  the agent has it, or has finished and is awaiting your word
  *   .ai/done/     YOU confirmed it is done. Never read by the agent again.
  *
- * Nothing is ever deleted, and only you move an entry into `done/`. The agent
- * marking its own work complete is how a fix that did not actually fix anything
- * disappears -- you looked at the screen, it did not.
+ * Only you move an entry into `done/`, and only you delete or reword one. The
+ * agent marking its own work complete is how a fix that did not actually fix
+ * anything disappears -- you looked at the screen, it did not.
  *
  * Dev-only on purpose: it writes to the repo, so it must never exist in a
  * production build.
@@ -102,11 +102,32 @@ export function feedbackPlugin() {
         if (req.method !== 'POST') return next();
         void (async () => {
           try {
-            const { id, action } = await body(req);
-            const target = action === 'done' ? 'done' : 'inbox';
+            const { id, action, comment } = await body(req);
             const found = await locate(root, id);
             if (!found) return json(res, 404, { error: `no entry ${String(id)}` });
 
+            // Deleting is yours alone, and it is real: the entry was wrong, or
+            // you changed your mind. Nothing else in this system removes one.
+            if (action === 'delete') {
+              await rm(found.file);
+              server.config.logger.info(`\n  [feedback] ${id} deleted\n`);
+              return json(res, 200, { id, deleted: true });
+            }
+
+            // Editing keeps the entry where it is: rewording a report does not
+            // change whether it is done, and silently reopening it would lose
+            // the agent's note.
+            if (action === 'edit') {
+              const entry = (await readJson(found.file)) ?? {};
+              entry.comment =
+                typeof comment === 'string' && comment.trim() !== '' ? comment.trim() : null;
+              entry.editedAt = new Date().toISOString();
+              await writeFile(found.file, JSON.stringify(entry, null, 2) + '\n', 'utf8');
+              server.config.logger.info(`\n  [feedback] ${id} edited\n`);
+              return json(res, 200, { id, folder: found.folder });
+            }
+
+            const target = action === 'done' ? 'done' : 'inbox';
             const entry = (await readJson(found.file)) ?? {};
             entry.status = action === 'done' ? 'done' : 'new';
             entry[action === 'done' ? 'confirmedAt' : 'reopenedAt'] = new Date().toISOString();

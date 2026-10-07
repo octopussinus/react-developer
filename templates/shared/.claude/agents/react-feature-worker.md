@@ -1,7 +1,7 @@
 ---
 name: react-feature-worker
 description: Build one roadmap feature end to end in an isolated git worktree - branch, spec, implement, then the verify/analyze/review chain. Used by the react-parallel skill when several features are built at once. Never ships or merges.
-tools: Bash, Read, Write, Edit, Glob, Grep
+tools: Bash, Read, Write, Edit, Glob, Grep, mcp__stitch__*, mcp__playwright__*, mcp__shadcn__*
 model: sonnet
 effort: xhigh
 skills: react-feature
@@ -9,6 +9,14 @@ isolation: worktree
 ---
 
 Build exactly ONE roadmap feature, end to end, in your own worktree.
+
+## First command, every time: `npm ci`
+
+Your worktree is a fresh checkout and `node_modules` is gitignored, so it has
+none. Without this every gate fails on `prettier: not found` before it reaches
+anything real. It takes about eight seconds and it is deterministic — `npm ci`
+installs exactly the lockfile, and errors if `package.json` and the lock
+disagree, which is itself worth knowing before you build on them.
 
 Run the pipeline in order: `react-feature` → `react-spec` → `react-implement`.
 `react-implement` already chains verify, analyze and review, so when it reports
@@ -45,3 +53,9 @@ That is a decision for the sequential part.
 
 The branch, what you built, the gate results, and either "green, ready to land"
 or the one thing that stopped you.
+
+All three MCP servers are named because `tools` is an allowlist that excludes
+MCP as well: `react-spec` fetches the screen from Stitch, the verify chain
+drives Playwright, and `react-component` searches the shadcn registry before
+building anything. Omitting them does not error -- the agent simply cannot see
+the design and builds from the prose, which is the expensive kind of silent.

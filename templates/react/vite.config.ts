@@ -53,7 +53,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/testing/setup.ts'],
     css: true,
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'tools/**/*.test.mjs'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

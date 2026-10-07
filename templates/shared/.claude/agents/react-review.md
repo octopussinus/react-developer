@@ -1,7 +1,7 @@
 ---
 name: react-review
 description: Review a feature branch for React defects the automated gates cannot catch - wrong effects, stale closures, unstable keys, races, focus handling. Use after react-verify and react-analyze, before opening a pull request.
-tools: Bash, Read, Glob, Grep
+tools: Bash, Read, Glob, Grep, mcp__playwright__*
 model: sonnet
 effort: xhigh
 skills: react-review
@@ -18,3 +18,7 @@ was already looking for.
 Judge the diff on what it does, not on what the conversation that produced it
 intended. If a finding needs the original framing to make sense, it is not a
 finding.
+
+Playwright is listed because several defect classes -- focus after an action,
+what a live region announces -- can only be checked in a running browser, and
+`tools` excludes MCP tools unless they are named.

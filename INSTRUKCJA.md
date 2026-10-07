@@ -458,8 +458,17 @@ to jest celowe: jedynym prawdziwym sprawdzianem „czy naprawione" jest Twoje
 spojrzenie na ekran.
 
 **Not fixed** odsyła zgłoszenie na początek listy i kasuje notatkę asystenta, żeby
-kolejne podejście zaczynało się od czysta. Nic nigdy nie jest usuwane, a to, co
-potwierdzisz jako zrobione, nie trafia już nigdy do asystenta.
+kolejne podejście zaczynało się od czysta. To, co potwierdzisz jako zrobione, nie
+trafia już nigdy do asystenta.
+
+Każde zgłoszenie, na dowolnym etapie, ma też dwa własne przyciski:
+
+- **Edit** — przeredaguj je. Przydaje się, gdy po czasie widzisz, że napisałeś to
+  mniej precyzyjnie, niż chciałeś. Zgłoszenie zostaje dokładnie tam, gdzie było:
+  przeredagowanie opisu nie zmienia tego, czy jest zrobione.
+- **Delete** — usuń je na dobre. Najpierw pyta o potwierdzenie i jest jedyną
+  rzeczą w całym systemie, która cokolwiek kasuje. Asystent nigdy tego nie zrobi
+  — jeśli uważa, że skończył, może tylko to napisać i czekać na Ciebie.
 
 ## Podgląd: co zostało użyte ponownie, a co jest nowe
 
@@ -491,18 +500,27 @@ naprawdę tego używają, zwykle tworzy komponent, który nie pasuje do żadnej 
 ## Mapa całej strony
 
 Przycisk **Map**, obok Feedback, rysuje wszystkie strony Twojej witryny i
-wszystkie przyciski oraz odnośniki, które między nimi przenoszą:
+wszystkie przyciski oraz odnośniki, które między nimi przenoszą.
 
+Nie wysypuje tego wszystkiego naraz. Zaczyna od strony głównej, a każda strona,
+która gdzieś prowadzi, ma małe `▸` i liczbę — `▸ +6` znaczy sześć wyjść.
+**Kliknij stronę, a ona się rozwinie** i pokaże dokładnie, do których stron
+potrafi przenieść. Kliknij ponownie, żeby ją zwinąć. `Expand all` i `Collapse`
+są w lewym górnym rogu.
+
+- podpis na strzałce to **nazwa komponentu odpowiedzialnego za to przejście** —
+  czyli plik, który otwierasz, jeśli chcesz zmienić, dokąd prowadzi
 - **niebieska linia** to zwykły odnośnik
-- **fioletowa przerywana** to przycisk, który przenosi po kliknięciu
-- każda linia jest podpisana **tekstem, który naprawdę klikasz**
+- **fioletowa linia** to automatyczne przekierowanie — nikt go nie klika, dzieje
+  się samo
 - **bursztynowa strona** to taka, do której nic nie prowadzi — zwykle warto
   sprawdzić, czy to nie pomyłka
 - **kłódka** oznacza stronę wymagającą uprawnień
 
-**Kliknij dowolną strzałkę**, a panel pokaże dokładnie, co odpowiada za to
-przejście: tekst, który klikasz, czy to odnośnik czy przycisk, **w którym
-komponencie** się znajduje oraz **plik i numer linii** — z przyciskiem do
+**Kliknij dowolną strzałkę**, a panel pokaże resztę: tekst, który klikasz (albo,
+przy automatycznym przekierowaniu, warunek który je uruchamia, np.
+`if status === 'unauthenticated'`), czy to odnośnik czy przycisk, w którym
+komponencie się znajduje oraz **plik i numer linii** — z przyciskiem do
 skopiowania. Mapa nie mówi więc tylko „te dwie strony są połączone", ale też gdzie
 pójść i to zmienić.
 

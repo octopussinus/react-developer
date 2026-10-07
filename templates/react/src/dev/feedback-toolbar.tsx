@@ -238,6 +238,8 @@ export function mountFeedbackToolbar(): void {
       .item .acts button { flex: 1; font: inherit; font-size: 11px; padding: 5px 8px; }
       .item .acts .yes { background: #10b981; }
       .item .acts .no { background: #374151; }
+      .item .acts .del { background: #7f1d1d; }
+      .item .acts .del:hover { background: #991b1b; }
       .list .empty { color: #9ca3af; font-size: 11px; line-height: 1.5; }
       .panel .cancel { margin-top: 10px; background: transparent; color: #9ca3af;
                        padding: 4px 0; }
@@ -415,11 +417,12 @@ export function mountFeedbackToolbar(): void {
       box.appendChild(note);
     }
 
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+
     // Confirmation is yours. The agent can say it finished; only you can say it
     // is done, and nothing leaves `working/` until you do.
     if (item.folder === 'working') {
-      const acts = document.createElement('div');
-      acts.className = 'acts';
       const yes = document.createElement('button');
       yes.type = 'button';
       yes.className = 'yes';
@@ -431,17 +434,46 @@ export function mountFeedbackToolbar(): void {
       no.textContent = 'Not fixed';
       no.addEventListener('click', () => void resolve(item.id, 'reopen'));
       acts.append(yes, no);
-      box.appendChild(acts);
     }
+
+    // Edit rewords without changing status: a clearer report of the same
+    // problem is still that problem, and reopening it would lose the note.
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'no';
+    edit.textContent = 'Edit';
+    edit.addEventListener('click', () => {
+      const next = window.prompt('Reword this feedback:', item.comment ?? '');
+      if (next === null) return;
+      void resolve(item.id, 'edit', next);
+    });
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'del';
+    remove.textContent = 'Delete';
+    remove.addEventListener('click', () => {
+      // The one destructive action here, so it asks. Everything else moves an
+      // entry between folders and is undoable by moving it back.
+      if (!window.confirm('Delete this feedback? This cannot be undone.')) return;
+      void resolve(item.id, 'delete');
+    });
+
+    acts.append(edit, remove);
+    box.appendChild(acts);
 
     return box;
   }
 
-  async function resolve(id: string, action: 'done' | 'reopen'): Promise<void> {
+  async function resolve(
+    id: string,
+    action: 'done' | 'reopen' | 'edit' | 'delete',
+    comment?: string,
+  ): Promise<void> {
     await fetch('/__react-dev/feedback/resolve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action }),
+      body: JSON.stringify({ id, action, comment }),
     }).catch((error: unknown) => {
       console.error('[feedback] could not reach the dev server', error);
     });
@@ -477,7 +509,7 @@ export function mountFeedbackToolbar(): void {
     const hint = document.createElement('p');
     hint.className = 'empty';
     hint.textContent =
-      'Nothing is deleted. An entry only becomes done when you confirm it, and the agent never reads done ones again.';
+      'An entry only becomes done when you confirm it, and the agent never reads done ones again. Edit rewords it; Delete removes it for good.';
     listPanel.appendChild(hint);
   }
 

@@ -196,6 +196,18 @@ REQUIRED_PATHS: tuple[tuple[str, str], ...] = (
     ("tools/feedback-plugin.mjs", "the dev endpoint that writes .ai/inbox/"),
 )
 
+#: Packages the dev tooling imports directly.
+#:
+#: `sync` never touches project code, so a project generated before one of
+#: these was added keeps a Map button that throws on click. A missing import is
+#: invisible until someone presses the button, which is exactly the drift the
+#: capability rows exist to surface.
+REQUIRED_DEV_DEPS: tuple[tuple[str, str], ...] = (
+    ("ts-morph", "tools/route-graph.mjs reads the real AST with it"),
+    ("@xyflow/react", "the site map is drawn with it"),
+    ("@dagrejs/dagre", "the site map's layout -- without it the Map button throws"),
+)
+
 
 @dataclass
 class Finding:
@@ -205,11 +217,21 @@ class Finding:
 
 
 def _pkg_scripts(project: Path) -> dict[str, str]:
+    return _pkg_field(project, "scripts")
+
+
+def _pkg_deps(project: Path) -> dict[str, str]:
+    """Both kinds, because which one a package belongs in is not the point."""
+    return {**_pkg_field(project, "dependencies"),
+            **_pkg_field(project, "devDependencies")}
+
+
+def _pkg_field(project: Path, field: str) -> dict[str, str]:
     pkg = project / "package.json"
     if not pkg.is_file():
         return {}
     try:
-        return json.loads(pkg.read_text(encoding="utf-8")).get("scripts", {})
+        return json.loads(pkg.read_text(encoding="utf-8")).get(field, {})
     except json.JSONDecodeError:
         return {}
 
@@ -290,6 +312,11 @@ def diagnose(project: Path, cli_version: str = "?",
 
     for rel, why in REQUIRED_PATHS:
         add((project / rel).exists(), rel, "present", f"missing - {why}")
+
+    deps = _pkg_deps(project)
+    for name, why in REQUIRED_DEV_DEPS:
+        add(name in deps, name, deps.get(name, ""),
+            f"not in package.json - {why}. Run `npm i -D {name}`.")
 
     # The feedback toolbar reports file:line from `data-tsd-source`, injected by
     # @tanstack/devtools-vite. Without that plugin wired the toolbar still works
@@ -606,6 +633,14 @@ def parallel_batch(project: Path, limit: int = 3) -> ParallelPlan:
         )
 
     done = {f.number for f in features if f.stage == "merged"}
+    # Prerequisites carry their own status in the index. Treating every `P<n>` as
+    # permanently blocking meant a project that had FINISHED all of them could
+    # never start anything in parallel, and the only escape was hand-editing
+    # every feature file to delete the reference -- which erases the record of
+    # what the feature actually depended on.
+    open_prerequisites = {
+        q.number.upper() for q in prerequisite_status(project) if q.state == "open"
+    }
     batch: list[FeatureStatus] = []
     excluded: list[tuple[FeatureStatus, str]] = []
     claimed: set[str] = set()
@@ -625,8 +660,9 @@ def parallel_batch(project: Path, limit: int = 3) -> ParallelPlan:
         blocking = []
         for token in (needs.group(1).split(",") if needs else []):
             token = token.strip()
-            if token.lower().startswith("p"):
-                blocking.append(token)  # a prerequisite; never auto-satisfied here
+            if re.fullmatch(r"[Pp]\d+", token):
+                if token.upper() in open_prerequisites:
+                    blocking.append(token)
             elif token.rstrip(".").isdigit() and f"{int(token):03d}" not in done:
                 blocking.append(f"feature {int(token)}")
         if blocking:

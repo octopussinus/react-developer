@@ -450,8 +450,17 @@ done, which is deliberate: the only real test of "is it fixed" is you looking at
 the screen.
 
 **Not fixed** sends it back to the top of the list and clears the assistant's
-note, so the next attempt starts fresh. Nothing is ever deleted, and once you
-confirm something as done the assistant never reads it again.
+note, so the next attempt starts fresh. Once you confirm something as done the
+assistant never reads it again.
+
+Every entry, at any stage, also has two buttons of its own:
+
+- **Edit** — reword it. Useful when you reread what you wrote and it is vaguer
+  than you meant. It stays exactly where it is: rewording a report does not
+  change whether it is done.
+- **Delete** — remove it for good. It asks first, and it is the only thing in
+  the whole system that deletes anything. The assistant can never do this; if it
+  thinks something is finished, all it can do is say so and wait for you.
 
 ## Seeing what was reused and what is new
 
@@ -482,19 +491,27 @@ is not a good enough reason, and it will say so.
 ## Seeing the whole site as a map
 
 The **Map** button, next to Feedback, draws every page of your site and every
-button or link that moves between them:
+button or link that moves between them.
 
+It does not throw all of it at you at once. It starts at the home page, and any
+page that leads somewhere shows a small `▸` and a number — `▸ +6` means six ways
+out. **Click the page and it opens**, showing exactly which pages it can send you
+to. Click it again to fold it away. `Expand all` and `Collapse` are in the
+top-left corner.
+
+- the name on each arrow is **the component responsible for that jump** — the
+  file to open if you want to change where it goes
 - a **blue line** is a normal link
-- a **purple dashed line** is a button that navigates when clicked
-- each line is labelled with **the text you actually click**
+- a **purple line** is an automatic redirect — nobody clicks it, it just happens
 - an **amber page** is one nothing links to — usually a mistake worth checking
 - a **lock** means the page needs a permission
 
-**Click any arrow** and a panel tells you exactly what is responsible for that
-jump: the text you click, whether it is a link or a button, **which component
-contains it**, and the **file and line number** — with a button to copy that.
-So the map does not just say "these two pages are connected", it says where to
-go and change it.
+**Click any arrow** and a panel tells you the rest: the text you click (or, for
+an automatic redirect, the condition that triggers it, like
+`if status === 'unauthenticated'`), whether it is a link or a button, which
+component contains it, and the **file and line number** — with a button to copy
+that. So the map does not just say "these two pages are connected", it says
+where to go and change it.
 
 Some buttons decide where to go while the app is running, and no amount of
 reading the code can tell you that in advance. Those are drawn as a dashed arrow

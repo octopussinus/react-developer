@@ -19,17 +19,16 @@ editing one file — which git merges cleanly into something that does not build
 
 ## 1. Ask the questions FIRST. All of them.
 
-A parallel agent cannot ask you anything: it has no terminal and you are not
-watching it. So every question has to be answered before anything starts.
+A parallel agent has no terminal and nobody is watching it, so every question
+must be answered before anything starts.
 
 ```bash
 react-dev parallel            # what is safe, and why the rest is not
 ```
 
 Anything it lists as *"open questions"* is disqualified until `react-clarify`
-has been through it. Run `react-clarify` on those, one question at a time, and
-re-check. **Do not start a batch with an unanswered marker in it** — the agent
-will guess, and you will not see it guessing.
+has been through it. **Never start a batch with an unanswered marker** — the
+agent will guess, and you will not see it guessing.
 
 ## 2. Ask how many
 
@@ -40,10 +39,8 @@ Use your host's question tool (`AskUserQuestion` in Claude Code), offering what
 - **The whole safe batch** — N worktrees, N agents, you get N reports at the end.
 
 Name the trade honestly: parallel is faster in wall-clock and worse for
-steering. You will not see a wrong turn until it is finished.
-
-Never put a feature in the batch that `react-dev parallel` held back. Its
-reasons are facts on disk, not preferences.
+steering — you will not see a wrong turn until it is finished. Never add a
+feature `react-dev parallel` held back; its reasons are facts on disk.
 
 ## 3. Dispatch one agent per feature
 
@@ -52,6 +49,11 @@ One `react-feature-worker` subagent per feature, each with its own worktree:
 ```
 Task(react-feature-worker, "Build roadmap feature 2 (dogs/profile) end to end.")
 ```
+
+**Commit anything the workers need to read first.** A worktree branches from
+`main`, so a design file sitting uncommitted in your checkout does not exist in
+theirs — and a worker that cannot find it builds from the prose instead of
+stopping, which is the expensive kind of silent. `git status` before dispatching.
 
 Dispatch them in ONE message so they run concurrently. Each one runs
 `react-feature` → `react-spec` → `react-implement`, and `react-implement` already
@@ -71,8 +73,11 @@ For each finished worktree, in the order they finished:
 
 ```bash
 git -C <worktree> rebase main      # or merge main in
-npm run verify                     # IN THAT WORKTREE, after the rebase
+npm ci && npm run verify           # IN THAT WORKTREE, after the rebase
 ```
+
+`npm ci` again because the rebase can bring in a dependency the base gained
+while this branch was being built.
 
 Only if that is green: `react-ship`, then `react-merge`. Then the next one
 rebases onto the new `main` and repeats.
@@ -84,10 +89,7 @@ on the combined result does.
 
 ## 5. Clean up
 
-```bash
-git worktree remove <path>        # per landed feature
-git worktree prune
-```
+`git worktree remove <path>` per landed feature, then `git worktree prune`.
 
 ## Hard rules
 
