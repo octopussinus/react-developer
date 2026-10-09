@@ -166,7 +166,8 @@ one at a time.
 screen spanning three domains is three. Screens sharing a data shape must live
 together, because a feature cannot import a sibling.
 
-**Your own designs instead?** Drop PNG/JPG screens or HTML prototypes into
+**Your own designs instead?** Drop PNG/JPG screens or HTML prototypes (HTML
+exported from Stitch works as is, no connection needed) into
 `designs/` (one file per screen, named after the page; `designs/README.md` has
 the rules). `react-roadmap` maps them to features, `react-spec` copies each
 feature's files into its `design/` folder and translates them into your tokens,

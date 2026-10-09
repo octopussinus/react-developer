@@ -35,8 +35,8 @@ route around.
 
 ## Procedure
 
-1. Read the spec and `AGENTS.md`. Write `plan.md` only if the approach is
-   non-obvious: the files you will touch and the order. Skip it for small work.
+1. Read the spec, `AGENTS.md` and `specs/NNN-<slug>/design/` (Stitch, or the
+   user's PNG/HTML from `designs/`); build to its layout, in tokens. `plan.md` only if needed.
 2. Fill `tasks.md` with a checklist derived from the spec's numbered behaviours.
    Tick items as you finish them, not at the end.
 3. Load [references/web.md](references/web.md) and follow it: where code goes,

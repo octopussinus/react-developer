@@ -8,8 +8,12 @@ Stitch (if connected) or from your description instead.
 
 - **PNG / JPG / WebP** — screenshots or exports from Figma, Penpot, a mock-up
   tool, a photo of a sketch. The agent looks at the picture.
-- **HTML** — a prototype page (from Stitch, v0, a hand-made mock-up). The agent
-  reads its structure, text and colours.
+- **HTML** — a prototype page. The agent reads its structure, text and colours.
+  **Exported from Google Stitch works as is:** in Stitch, export each screen's
+  code (HTML), save it here named after the page, and add the screen's PNG
+  next to it if Stitch gives you one -- `orders-list.html` + `orders-list.png`.
+  No Stitch connection (API key, MCP) is needed for this; v0, Figma-to-HTML or
+  a hand-made mock-up work the same way.
 
 One file per screen. Name it after the page, so it is obvious which is which:
 

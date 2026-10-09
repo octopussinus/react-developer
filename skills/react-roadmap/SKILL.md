@@ -22,8 +22,8 @@ roadmap nobody agreed to is a wrong plan executed quickly.
 codebase's tokens. Tool params, the polling rule and the token-direction decision:
 [references/stitch.md](references/stitch.md).
 
-**Your own design files?** `ls designs/` -- HTML prototypes and PNG/JPG
-screens the user dropped in (see `designs/README.md`). Look at every one; each
+**Your own design files?** `ls designs/` -- HTML prototypes (often exported
+from Stitch) and PNG/JPG screens the user dropped in (`designs/README.md`). Look at every one; each
 is a screen to map, exactly like a Stitch screen, recorded by its path.
 
 **Neither?** Read the brief in full before splitting anything — decomposing from

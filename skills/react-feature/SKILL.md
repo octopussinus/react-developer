@@ -65,5 +65,5 @@ roadmap entry used (if any), and the `npm run verify` result. Then hand off:
 
 > **Stage 3 of 11 complete.** Branch `NNN-<slug>`, folder `specs/NNN-<slug>/`,
 > generated slice, `npm run verify` green.
-> **Do next:** `react-spec` — it fetches the Stitch screen first if this page was
-> designed there.
+> **Do next:** `react-spec` — it brings in this page's design first: the Stitch
+> screen, or the user's PNG/HTML from `designs/`.

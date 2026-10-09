@@ -69,6 +69,10 @@ named; `designs/mobile/` holds phone-sized variants, `name--empty.png` a state).
    against what is there.
 3. **PNG/JPG:** look at the image. **HTML:** read the markup for structure,
    copy and the colours it uses -- never paste its CSS or classes into the app.
+   HTML exported from Google Stitch is the common case: Tailwind classes with
+   the design's own hex values. Translate them to this project's tokens and
+   components like any other Stitch screen; an `x.png` beside `x.html` is the
+   same screen, and the picture wins where the two disagree.
 4. Then section 2 above applies unchanged: tokens, not hex; components, not
    markup; every state the picture does not show becomes a marker.
 

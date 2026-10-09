@@ -230,7 +230,9 @@ użyje tych projektów, dodaj MCP Serwer wg. instrukcji Google Stitch po przyci�
 
 **Masz własne projekty ekranów?** (Opcjonalnie.) Wrzuć je do folderu
 **`designs/`** w projekcie przed tym krokiem — obrazki PNG albo JPG każdego ekranu
-(zrzuty ekranu, eksport z Figmy, nawet zdjęcie szkicu) albo prototypy w HTML.
+(zrzuty ekranu, eksport z Figmy, nawet zdjęcie szkicu) albo prototypy w HTML —
+także **pliki HTML wyeksportowane ze Stitcha** (wyeksportuj kod ekranu i zapisz
+go tutaj; połączenie ze Stitchem nie jest potrzebne).
 Jeden plik na ekran, nazwany jak podstrona: `designs/home.png`,
 `designs/orders-list.png`. Wersje na telefon możesz dać do `designs/mobile/`.
 Asystent je obejrzy, zaplanuje według nich, zbuduje każdą stronę tak, żeby

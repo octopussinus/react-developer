@@ -55,8 +55,8 @@ extremes.
    first; reviewing unverified code wastes the review on lint-level noise.
 2. **Read the diff, not the repo.** `git diff main...HEAD --stat`, then the
    changed files. Reviewing untouched code produces findings nobody can act on.
-3. **Read the spec** so you can tell a defect from a decision. Behaviour the
-   spec chose is not a finding, however much you would have done it differently.
+3. **Read the spec** (and look at `specs/NNN-<slug>/design/` if present) so you
+   can tell a defect from a decision. What the spec chose is not a finding.
 4. **Collect candidates** with the greps in the reference.
 5. **Verify every candidate against the source before writing it down.** Open the
    file, read the surrounding function, and confirm the failure is real. If you

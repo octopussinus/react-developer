@@ -24,9 +24,10 @@ prevent; you find out from the switcher in ten seconds instead of from a
 rebrand in three weeks. Two locales do the same for text: a layout that only
 survives English is a layout nobody tested.
 
-**Replace them, do not delete them.** When a design arrives — from Stitch or
-from the user — rename and restyle the three to match that product rather than
-dropping to one. If Stitch supplied only one palette, invent two honest
+**Replace them, do not delete them.** When a design arrives — from Stitch, or
+the user's PNG/HTML in `designs/` (read the colours off them) — rename and
+restyle the three to match that product rather than dropping to one. If the
+design supplied only one palette, invent two honest
 alternatives for *this* app: a flatter one and a softer one, not two random
 hues.
 

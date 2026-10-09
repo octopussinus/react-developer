@@ -224,7 +224,9 @@ those designs.
 
 **Have your own designs?** (Optional.) Put them in the **`designs/`** folder of
 your project before this step — PNG or JPG pictures of each screen (screenshots,
-Figma exports, even a photo of a sketch) or HTML prototypes. One file per screen,
+Figma exports, even a photo of a sketch) or HTML prototypes — including **HTML
+exported from Google Stitch** (export the screen's code, save it here; no Stitch
+connection needed). One file per screen,
 named after the page: `designs/home.png`, `designs/orders-list.png`. Phone-sized
 versions can go in `designs/mobile/`. The assistant looks at them, plans from
 them, builds each page to match, and compares its screenshots with them at the
