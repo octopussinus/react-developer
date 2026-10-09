@@ -132,7 +132,12 @@ def write_manifest(project: Path, *, cli_version: str, project_type: str,
                    agents: list[str], skills: list[str],
                    fingerprint: str | None = None,
                    user_removed: list[str] | None = None,
-                   hashes: dict[str, str] | None = None) -> None:
+                   hashes: dict[str, str] | None = None,
+                   port_from: str | None = None) -> None:
+    # The web app a mobile app is ported from, relative to the project. Kept
+    # through every sync: `npm run port` reads it, and losing it would leave
+    # the port asking which app it was made from.
+    extra = {"portFrom": port_from} if port_from else {}
     (project / MANIFEST).write_text(
         json.dumps(
             {
@@ -150,6 +155,7 @@ def write_manifest(project: Path, *, cli_version: str, project_type: str,
                 # Per-file hashes as shipped. `sync` compares against these to
                 # tell your edits from template changes. Do not hand-edit.
                 "fileHashes": hashes or {},
+                **extra,
             },
             indent=2,
         )
@@ -243,6 +249,55 @@ REQUIRED_DEV_DEPS: tuple[tuple[str, str], ...] = (
 )
 
 
+#: The mobile app's invariants -- what `react-native-port` and
+#: `react-native-verify` run. Same rule as the web lists above: a skill that
+#: starts depending on new template surface adds it here, or `doctor` reports a
+#: drifted mobile app as healthy while its agent runs commands it does not have.
+NATIVE_REQUIRED_SCRIPTS: tuple[tuple[str, str], ...] = (
+    ("verify", "the single gate react-native-verify runs"),
+    ("port", "copies the web app across and writes PORT.md (react-native-port)"),
+    ("typecheck", "Uniwind's className types, then tsc"),
+    ("test", "the web's tests against the copied code, plus native UI tests"),
+    ("test:logic", "Vitest: the copied web tests"),
+    ("test:native", "jest-expo: *.native.test.tsx"),
+    ("lint", "eslint"),
+    ("expo-go:check", "fails when a dependency would not run in Expo Go"),
+    ("doctor", "expo-doctor"),
+    ("bundle", "iOS and Android bundles -- every screen compiles"),
+)
+
+NATIVE_REQUIRED_PATHS: tuple[tuple[str, str], ...] = (
+    ("tools/port/index.mjs", "the copier `npm run port` runs"),
+    ("tools/expo-go-check.mjs", "the Expo Go compatibility gate"),
+    ("tools/uniwind-types.mjs", "className types for tsc without Metro"),
+    ("src/app/_layout.tsx", "the native app frame: providers, mocks, theme"),
+    ("src/platform/install.ts", "the web APIs copied code expects (localStorage)"),
+    ("src/platform/mocks.ts", "the web's MSW handlers answering on the phone"),
+    ("src/platform/mock-runtime.ts", "what msw needs and Hermes lacks"),
+    ("src/platform/port-stub.tsx", "what an untranslated route shows"),
+    ("src/global.css", "Tailwind + Uniwind + the converted tokens"),
+    ("src/styles/themes.json", "the theme list metro and theme.ts read"),
+    ("metro.config.js", "Uniwind's Metro wrapper with the generated themes"),
+    ("app.json", "the app config -- native settings live here, not in ios/android"),
+    ("eas.json", "the development-build profile for leaving Expo Go"),
+)
+
+NATIVE_REQUIRED_DEV_DEPS: tuple[tuple[str, str], ...] = (
+    ("typescript", "tools/port reads the web app's AST with it"),
+    ("postcss", "tools/port converts the web stylesheets with it"),
+    ("vitest", "runs the copied web tests"),
+    ("jest-expo", "runs the native UI tests"),
+    ("expo-doctor", "the `doctor` gate"),
+)
+
+#: project type -> (scripts, generator targets, paths, dev dependencies)
+REQUIREMENTS: dict[str, tuple] = {
+    "react": (REQUIRED_SCRIPTS, REQUIRED_GEN_TARGETS, REQUIRED_PATHS, REQUIRED_DEV_DEPS),
+    "react-native": (NATIVE_REQUIRED_SCRIPTS, (), NATIVE_REQUIRED_PATHS,
+                     NATIVE_REQUIRED_DEV_DEPS),
+}
+
+
 @dataclass
 class Finding:
     level: str  # "error" | "warn" | "ok"
@@ -328,27 +383,42 @@ def diagnose(project: Path, cli_version: str = "?",
             level="warn")
 
     # --- capabilities the current skills require ------------------------------
+    project_type = (manifest or {}).get("projectType", "react")
+    required_scripts, gen_targets, required_paths, required_deps = REQUIREMENTS.get(
+        project_type, REQUIREMENTS["react"]
+    )
     scripts = _pkg_scripts(project)
-    for name, why in REQUIRED_SCRIPTS:
+    for name, why in required_scripts:
         add(name in scripts, f"npm run {name}", scripts.get(name, ""),
             f"missing - {why}")
 
     generator = project / "tools" / "gen" / "index.mjs"
-    if generator.is_file():
+    if not gen_targets:
+        pass  # the mobile app has no generator: its files come from the web app
+    elif generator.is_file():
         source = generator.read_text(encoding="utf-8", errors="ignore")
-        missing = [g for g in REQUIRED_GEN_TARGETS if f"{g}:" not in source]
+        missing = [g for g in gen_targets if f"{g}:" not in source]
         add(not missing, "generator targets",
-            f"all {len(REQUIRED_GEN_TARGETS)} present",
+            f"all {len(gen_targets)} present",
             f"missing: {', '.join(missing)} - skills reference these, so the "
             "agent will run commands that do not exist")
     else:
         add(False, "generator targets", "", "tools/gen/index.mjs missing")
 
-    for rel, why in REQUIRED_PATHS:
+    for rel, why in required_paths:
         add((project / rel).exists(), rel, "present", f"missing - {why}")
 
+    if project_type == "react-native":
+        # The port needs to find the web app. A missing one is not fatal -- the
+        # app still runs -- but `npm run port` will stop and ask.
+        port_from = (manifest or {}).get("portFrom")
+        found = bool(port_from) and (project / port_from / "src").is_dir()
+        add(found, "web app", f"{port_from} (npm run port reads it)",
+            f"{port_from or 'not recorded'} not found - run "
+            "`npm run port -- --from <web app>` once", level="warn")
+
     deps = _pkg_deps(project)
-    for name, why in REQUIRED_DEV_DEPS:
+    for name, why in required_deps:
         add(name in deps, name, deps.get(name, ""),
             f"not in package.json - {why}. Run `npm i -D {name}`.")
 

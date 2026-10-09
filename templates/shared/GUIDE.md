@@ -853,6 +853,38 @@ lasts the project. That ladder is the whole idea.
 
 ---
 
+## 8b. The mobile app (Expo)
+
+The phone version of this app lives in **its own repository**, next to this
+one. `react-mobile` creates or updates it; this repository is only read.
+
+```
+> /react-mobile
+```
+
+or by hand:
+
+```bash
+react-dev init ../<name>-mobile --type react-native --from .
+cd ../<name>-mobile && npm install && npm run port && npm install
+```
+
+`npm run port` copies everything that runs on React Native **verbatim** --
+`api/`, `hooks/` without DOM, schemas, `lib/`, mocks, locales, and the web's own
+tests for them -- converts env (`VITE_*` -> `EXPO_PUBLIC_*`), the `@theme`
+tokens and every named theme (Uniwind), makes one Expo Router screen per route
+in `src/config/routes.ts`, and writes `PORT.md`: what is left to translate, in
+order. The agent in the mobile repository works through it with
+`react-native-port` and checks each screen with `react-native-verify`, which
+opens it in Expo Go.
+
+What keeps the copy honest: the more of this app's logic sits in `api/`,
+`hooks/`, `lib/` and `validation/` -- not inside components -- the more of it
+crosses over unchanged. A hook that reads `window` or `react-router` is
+translated instead of copied; PORT.md lists every such file and why.
+
+---
+
 ## 9. When something goes wrong
 
 | Symptom                                   | Cause                         | Fix                                                                    |

@@ -795,6 +795,64 @@ pojedynczo, a asystent Cię przez to przeprowadzi — bo dwie skończone funkcje
 nie to samo co dwie funkcje, które działają razem, a jedyny sposób, żeby się
 przekonać, to sprawdzić je połączone.
 
+## Aplikacja na telefon (Expo)
+
+Gdy strona działa, asystent może zrobić z niej **aplikację na telefon** —
+na iPhone'a i Androida, zbudowaną w Expo. Trafia ona do **osobnego folderu
+projektu** obok strony; folder strony jest tylko czytany, nigdy zmieniany.
+
+Poproś asystenta w folderze strony: _„zrób aplikację mobilną"_ (skill
+`react-mobile`). Albo wpisz sam:
+
+```
+react-dev init ../moja-aplikacja-mobile --type react-native --from .
+cd ../moja-aplikacja-mobile
+npm install
+npm run port
+npm install
+```
+
+`npm run port` kopiuje **wszystko, co może działać na telefonie bez zmian** —
+dane, wywołania API, reguły formularzy, tłumaczenia, kolory i motywy, nawet
+testy — i robi jeden ekran telefonu na każdą podstronę. W prawdziwym projekcie
+to setki plików skopiowanych w kilka sekund, bez zmian. Zapisuje `PORT.md`:
+listę tego, co trzeba jeszcze przepisać na telefon (części, które rysują
+ekran), w kolejności, w jakiej warto to robić.
+
+Potem otwórz asystenta **w folderze aplikacji mobilnej** i wpisz
+`react-native-port`. Przepisuje ekrany po kolei i sprawdza każdy przez
+`react-native-verify`. Ekrany jeszcze nie przepisane pokazują kartę
+„Not ported yet" — nigdy błąd.
+
+**Zobacz na telefonie:** `npm start` w folderze aplikacji, potem zeskanuj kod QR
+aplikacją **Expo Go**. Ta aplikacja używa Expo SDK 57: na Androidzie Expo samo
+instaluje właściwe Expo Go; na iPhonie Expo Go z App Store może być przez jakiś
+czas o wersję w tyle — `README.md` aplikacji mówi, co wtedy zrobić.
+
+**Później, gdy Expo Go przestanie wystarczać** (płatności, mapy z własnym
+kluczem, cokolwiek, czego Expo Go nie zawiera), przechodzisz na „development
+build" — własną wersję Expo Go. Kod się nie zmienia; `README.md` ma trzy
+polecenia.
+
+**Szybciej, kilkoma asystentami naraz:** w folderze aplikacji mobilnej zapisz
+najpierw pracę (`git add -A && git commit -m "first port"`), potem:
+
+```
+react-dev dispatch
+```
+
+Rozdziela ekrany między kilku asystentów działających samodzielnie (Claude
+Code, Codex albo Gemini — który masz; wybór przez `--agent`), po kilka plików,
+falami. Po każdej fali wszystko sprawdza i zapisuje jako commit, więc nic
+niedokończonego nie wchodzi. Zanim uruchomi jakiegokolwiek asystenta, sprawdza,
+czy aplikacja jest zielona, więc płatny czas nie idzie na zepsutą bazę.
+`react-dev dispatch --dry-run` pokazuje, co zrobi pierwsza fala; to, czego
+asystent nie mógł rozstrzygnąć sam, dostajesz na końcu.
+
+**Gdy strona się zmieni:** uruchom ponownie `npm run port` w aplikacji
+mobilnej. Skopiowane pliki same się aktualizują; ekrany już przepisane są
+oznaczane, gdy zmieniła się strona, z której powstały.
+
 ## Kiedy coś pójdzie nie tak
 
 | Co widzisz                                        | Co zrobić                                                                                                                                        |

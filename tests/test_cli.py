@@ -1826,3 +1826,148 @@ def test_both_beginner_guides_describe_the_same_commands_the_cli_has():
 
     # The two this change added, so neither guide can silently lose them.
     assert {"dispatch", "runs"} <= named["INSTRUCTION.md"]
+
+
+# --- the mobile app ----------------------------------------------------------
+# A react-native project is the mobile version of a web app, in its OWN
+# repository. These pin the three things that make that true: it is made from
+# its own template only, it carries the link back to the web app, and it gets
+# the mobile skills -- never the web pipeline's, whose commands it lacks.
+
+NATIVE_TEMPLATE = REPO_ROOT / "templates" / "react-native"
+
+
+@pytest.fixture
+def mobile(made: Path, tmp_path: Path) -> Path:
+    """A mobile app next to the `made` web app, as `react-mobile` creates it."""
+    result = runner.invoke(
+        app, ["init", "app-mobile", "--type", "react-native", "--from", "app", "--no-git"]
+    )
+    assert result.exit_code == 0, result.output
+    return tmp_path / "app-mobile"
+
+
+def test_mobile_init_builds_an_expo_app_linked_to_its_web_app(mobile: Path):
+    for expected in [
+        "package.json", "app.json", "eas.json", "metro.config.js", "AGENTS.md",
+        "CLAUDE.md", "GEMINI.md", MANIFEST, ".react-dev-port.json",
+        "tools/port/index.mjs", "tools/expo-go-check.mjs", "src/app/_layout.tsx",
+        "src/platform/mocks.ts", ".claude/agents/react-native-verify.md",
+        ".github/workflows/verify.yml",
+    ]:
+        assert (mobile / expected).exists(), f"missing {expected}"
+
+    manifest = json.loads((mobile / MANIFEST).read_text(encoding="utf-8"))
+    assert manifest["projectType"] == "react-native"
+    # Relative, so the two repositories can be cloned side by side elsewhere.
+    assert manifest["portFrom"] == "../app"
+
+
+def test_mobile_init_does_not_get_the_web_scaffolding(mobile: Path):
+    """The shared files describe the web pipeline -- Playwright, Storybook, gen."""
+    for absent in ["GUIDE.md", "tools/gen", "vite.config.ts", ".claude/agents/react-verify.md"]:
+        assert not (mobile / absent).exists(), f"{absent} leaked into the mobile app"
+
+
+def test_each_kind_of_project_gets_only_its_own_skills(made: Path, mobile: Path):
+    web = {p.parent.name for p in (made / CANONICAL_SKILLS_DIR).glob("*/SKILL.md")}
+    native = {p.parent.name for p in (mobile / CANONICAL_SKILLS_DIR).glob("*/SKILL.md")}
+
+    assert native == {"react-native-port", "react-native-parallel", "react-native-verify"}
+    assert "react-mobile" in web, "the web app needs the way into its mobile app"
+    assert not web & native, f"skills in both: {sorted(web & native)}"
+
+
+def test_from_is_refused_where_it_cannot_mean_anything(made: Path, tmp_path: Path):
+    # Only a mobile app is ported from something.
+    result = runner.invoke(app, ["init", "x", "--type", "react", "--from", "app", "--no-git"])
+    assert result.exit_code == 2
+
+    # Not a web app.
+    (tmp_path / "empty").mkdir()
+    result = runner.invoke(app, ["init", "y", "--type", "react-native", "--from", "empty", "--no-git"])
+    assert result.exit_code == 2 and "not a web app" in result.output
+
+    # Inside the web app: its lint, tests and build would sweep the mobile app up.
+    result = runner.invoke(
+        app, ["init", "app/mobile", "--type", "react-native", "--from", "app", "--no-git"]
+    )
+    assert result.exit_code == 2 and "its own repository" in result.output
+    assert not (made / "mobile").exists()
+
+
+def test_from_alone_means_a_mobile_app(made: Path, tmp_path: Path):
+    result = runner.invoke(app, ["init", "m", "--from", "app", "--no-git"])
+    assert result.exit_code == 0, result.output
+    assert json.loads((tmp_path / "m" / MANIFEST).read_text())["projectType"] == "react-native"
+
+
+def test_sync_keeps_the_link_to_the_web_app(mobile: Path):
+    result = runner.invoke(app, ["sync", str(mobile)])
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((mobile / MANIFEST).read_text(encoding="utf-8"))
+    assert manifest["portFrom"] == "../app", "sync dropped portFrom; `npm run port` would ask"
+    assert sorted(manifest["skills"]) == [
+        "react-native-parallel", "react-native-port", "react-native-verify"]
+
+
+def test_doctor_checks_a_mobile_app_against_the_mobile_invariants(mobile: Path):
+    findings = diagnose(mobile, cli_version=__version__)
+    errors = [f"{f.check}: {f.detail}" for f in findings if f.level == "error"]
+    assert not errors, errors
+    checks = {f.check for f in findings}
+    assert "npm run port" in checks and "npm run expo-go:check" in checks
+    # The web generator is not a mobile invariant.
+    assert "generator targets" not in checks
+
+
+def test_doctor_catches_a_mobile_app_missing_its_copier(mobile: Path):
+    (mobile / "tools" / "port" / "index.mjs").unlink()
+    findings = diagnose(mobile, cli_version=__version__)
+    assert any(f.check == "tools/port/index.mjs" and f.level == "error" for f in findings)
+
+
+def test_the_native_template_ships_no_port_state_of_its_own():
+    """The template is ported from the base web template while it is developed.
+
+    Its worklist and source path must not ship: a new mobile app would open
+    with a PORT.md about `../react` and a port that copies from it.
+    """
+    assert not (NATIVE_TEMPLATE / "PORT.md").exists()
+    record = json.loads((NATIVE_TEMPLATE / ".react-dev-port.json").read_text(encoding="utf-8"))
+    assert "from" not in record and "webCommit" not in record
+    # The copies ARE recorded, so the first real port updates them three-way.
+    assert "src/lib/api-client.ts" in record["files"]
+
+
+def test_mobile_skills_only_name_scripts_the_mobile_template_has():
+    """Same rule as the web skills: a command the agent is told to run must exist."""
+    scripts = json.loads((NATIVE_TEMPLATE / "package.json").read_text(encoding="utf-8"))["scripts"]
+    for name in ("react-native-port", "react-native-parallel", "react-native-verify"):
+        skill = REPO_ROOT / "skills" / name
+        text = "\n".join(p.read_text(encoding="utf-8") for p in skill.rglob("*.md"))
+        for script in set(re.findall(r"npm run ([a-z][a-z:-]*)", text)):
+            assert script in scripts, f"{name} tells the agent to run `npm run {script}`"
+
+
+def test_doctor_lists_every_script_the_mobile_skills_rely_on():
+    from react_dev.project import NATIVE_REQUIRED_SCRIPTS
+
+    named = {name for name, _ in NATIVE_REQUIRED_SCRIPTS}
+    for name in ("react-native-port", "react-native-verify"):
+        text = (REPO_ROOT / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
+        for script in set(re.findall(r"npm run ([a-z][a-z:-]*)", text)):
+            assert script in named, f"doctor does not check `npm run {script}` ({name} needs it)"
+
+
+def test_the_port_restores_the_template_s_own_defaults_byte_for_byte():
+    """`npm run port` puts a template file back when an app's version stops being
+    portable. The snapshot it restores from must BE the template file, or a
+    withdrawal silently swaps in a stale one."""
+    snapshot = json.loads((NATIVE_TEMPLATE / "tools/port/defaults.json").read_text(encoding="utf-8"))
+    snapshot.pop("$comment", None)
+    assert snapshot, "no defaults recorded"
+    for rel, content in snapshot.items():
+        assert (NATIVE_TEMPLATE / rel).read_text(encoding="utf-8") == content, (
+            f"tools/port/defaults.json is stale for {rel} -- regenerate it with the template"
+        )

@@ -170,7 +170,12 @@ AGENTS: dict[str, Agent] = {
         invoke_prefix="/react:",
         strips_prefix=True,
         headless=Headless(
-            base=("--output-format", "stream-json", "--approval-mode", "yolo"),
+            # --skip-trust: every worker runs in a NEW worktree folder, which
+            # Gemini does not trust -- and in an untrusted folder it silently
+            # drops `yolo` back to "default" (ask before each tool), so the
+            # worker stalls waiting for approvals nobody gives. Session-scoped,
+            # per the CLI's own docs for headless runs.
+            base=("--output-format", "stream-json", "--approval-mode", "yolo", "--skip-trust"),
             prompt_flag="--prompt",
             stream="gemini",
             model_flag="--model",

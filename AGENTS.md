@@ -9,6 +9,7 @@ constitution is `templates/react/AGENTS.md`.
 src/react_dev/        the CLI (typer): init · check · doctor · sync · dispatch
   agents.py           the 3 agent adapters: wiring, and how to launch each one
   runner.py           headless workers: spawn, stream, log, verdict
+  porting.py          `dispatch` in a mobile app: port waves, land, gate, commit
   project.py          .react-dev.json + the doctor invariants
 skills/<name>/        CANONICAL skills: the single source of truth for all agents
 templates/react/      the project template (must pass its own npm run verify)

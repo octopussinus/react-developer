@@ -1,0 +1,80 @@
+{
+  "files": {
+    "src/lib/api-client.test.ts": {
+      "web": "da23b06cb8a7",
+      "native": "da23b06cb8a7"
+    },
+    "src/lib/api-client.ts": {
+      "web": "6134b35c9b72",
+      "native": "6134b35c9b72"
+    },
+    "src/lib/cn.ts": {
+      "web": "cd2115f276b8",
+      "native": "cd2115f276b8"
+    },
+    "src/lib/query-client.ts": {
+      "web": "c658b4deab15",
+      "native": "c658b4deab15"
+    },
+    "src/lib/use-zod-form.ts": {
+      "web": "80ebdccde21c",
+      "native": "80ebdccde21c"
+    },
+    "src/testing/mocks/factories/index.ts": {
+      "web": "afbc681d24fe",
+      "native": "afbc681d24fe"
+    },
+    "src/testing/mocks/handlers/index.ts": {
+      "web": "8e0b188cf7f5",
+      "native": "8e0b188cf7f5"
+    },
+    "src/testing/mocks/server.ts": {
+      "web": "e48ac835bd5a",
+      "native": "e48ac835bd5a"
+    },
+    "src/testing/render.tsx": {
+      "web": "6a8be1a0d584",
+      "native": "6a8be1a0d584"
+    },
+    "src/testing/setup.ts": {
+      "web": "cf105096f1eb",
+      "native": "cf105096f1eb"
+    },
+    "src/locales/en/common.json": {
+      "web": "4575c712cb9d",
+      "native": "4575c712cb9d"
+    },
+    "src/locales/en/nav.json": {
+      "web": "6933de198eba",
+      "native": "6933de198eba"
+    },
+    "src/locales/pl/common.json": {
+      "web": "b1bfec172995",
+      "native": "b1bfec172995"
+    },
+    "src/locales/pl/nav.json": {
+      "web": "d70f1a88f0da",
+      "native": "d70f1a88f0da"
+    },
+    "src/types/i18next.d.ts": {
+      "web": "4b274289eee0",
+      "native": "4b274289eee0"
+    },
+    "src/components/atoms/index.ts": {
+      "web": "95bed3252ae0",
+      "native": "1f9845e9ccd8"
+    },
+    "src/components/molecules/index.ts": {
+      "web": "6b62b4f78491",
+      "native": "e578a2c7d112"
+    },
+    "src/components/organisms/index.ts": {
+      "web": "0d4622730905",
+      "native": "7d406c84112f"
+    },
+    "src/components/templates/index.ts": {
+      "web": "027e7e00014b",
+      "native": "7d406c84112f"
+    }
+  }
+}

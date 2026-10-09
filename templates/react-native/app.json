@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "react-dev-native-app",
+    "slug": "react-dev-native-app",
+    "scheme": "reactdevapp",
+    "version": "0.1.0",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "plugins": ["expo-router", "expo-localization", "expo-sqlite", "expo-font", "expo-image"]
+  }
+}

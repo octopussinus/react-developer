@@ -332,3 +332,12 @@ def _executable_source(module: Path) -> str:
     return "\n".join(
         line for line in text.splitlines() if not line.lstrip().startswith("#")
     )
+
+
+def test_gemini_trusts_the_fresh_worktree_it_runs_in():
+    """A worker's worktree is a folder Gemini has never seen. Untrusted, it
+    downgrades --approval-mode yolo to "default" and waits for approvals that
+    never come -- found running it headless, not in its docs' happy path."""
+    argv = headless_command(AGENTS["gemini"], "hi")
+    assert "--skip-trust" in argv
+    assert argv[argv.index("--approval-mode") + 1] == "yolo"
