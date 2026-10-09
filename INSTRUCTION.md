@@ -5,6 +5,8 @@ type short commands and answer questions. The computer does the building.
 
 Polska wersja: [INSTRUKCJA.md](INSTRUKCJA.md)
 
+Making a phone app from your website: [INSTRUCTION-MOBILE.md](INSTRUCTION-MOBILE.md)
+
 ---
 
 ## What this actually is
@@ -777,65 +779,6 @@ This works the same with Claude Code, Codex or Gemini CLI — `--agent codex` an
 land them one at a time afterwards, and the assistant walks you through it —
 because two finished features are not the same as two features that work
 together, and the only way to find out is to check them combined.
-
-## Making the phone app (Expo)
-
-Once your website works, the assistant can make the **phone app** version of
-it — for iPhone and Android, built with Expo. It goes in its **own separate
-project folder** next to your website; your website's folder is only read,
-never changed.
-
-Ask your assistant, in the website's folder: _"make the mobile app"_ (the
-`react-mobile` skill). Or type it yourself:
-
-```
-react-dev init ../my-app-mobile --type react-native --from .
-cd ../my-app-mobile
-npm install
-npm run port
-npm install
-```
-
-`npm run port` copies across **everything that can run on a phone as it is** —
-data, API calls, forms' rules, translations, your colours and themes, even your
-tests — and makes one phone screen per page of your website. On a real project
-that is hundreds of files copied in seconds, unchanged. It writes `PORT.md`: the
-list of what still has to be rewritten for a phone (the parts that draw the
-screen), in the order worth doing it.
-
-Then open your assistant **in the phone app's folder** and say `react-native-port`.
-It rewrites the screens one at a time and checks each one with
-`react-native-verify`. Screens not done yet show a "Not ported yet" card —
-never a crash.
-
-**See it on your phone:** `npm start` in the phone app's folder, then scan the
-QR code with the **Expo Go** app. This app uses Expo SDK 57: on Android, Expo
-installs the right Expo Go for you; on iPhone, the App Store's Expo Go can be a
-version behind for a while — the phone app's `README.md` says what to do.
-
-**Later, when you outgrow Expo Go** (payments, maps with your own key, anything
-Expo Go does not include), you switch to a "development build" — your own
-version of Expo Go. The code does not change; the `README.md` has the three
-commands.
-
-**Faster, with several assistants at once:** in the phone app's folder, save
-your work first (`git add -A && git commit -m "first port"`), then:
-
-```
-react-dev dispatch
-```
-
-It hands the screens to several assistants running on their own (Claude Code,
-Codex or Gemini — whichever you have; pick one with `--agent`), a few files
-each, in waves. After every wave it checks everything and saves it as a commit,
-so nothing half-done ever lands. Before starting any assistant it checks that
-the app is green, so no paid time is spent on a broken base.
-`react-dev dispatch --dry-run` shows what the first wave would do; anything an
-assistant could not decide alone is listed at the end for you.
-
-**When the website changes:** run `npm run port` in the phone app again. Copied
-files update themselves; screens already rewritten are flagged when the page
-they came from changed.
 
 ## When something goes wrong
 

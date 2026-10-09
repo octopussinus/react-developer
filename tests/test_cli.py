@@ -1971,3 +1971,20 @@ def test_the_port_restores_the_template_s_own_defaults_byte_for_byte():
         assert (NATIVE_TEMPLATE / rel).read_text(encoding="utf-8") == content, (
             f"tools/port/defaults.json is stale for {rel} -- regenerate it with the template"
         )
+
+
+def test_the_mobile_guides_describe_the_same_commands_in_both_languages():
+    """Same two ways to rot as the main guides; checked the same way."""
+    import re
+
+    real = {command.name or command.callback.__name__ for command in app.registered_commands}
+    named = {}
+    for guide in ("INSTRUCTION-MOBILE.md", "INSTRUKCJA-MOBILE.md"):
+        text = (REPO_ROOT / guide).read_text(encoding="utf-8")
+        named[guide] = set(re.findall(r"react-dev ([a-z][a-z-]*)", text))
+        assert not named[guide] - real, f"{guide} names commands that do not exist"
+        # Every skill it tells the reader to type must exist.
+        for skill in set(re.findall(r"/(react-native-[a-z]+)", text)):
+            assert (REPO_ROOT / "skills" / skill / "SKILL.md").is_file(), f"{guide}: /{skill}"
+    assert named["INSTRUCTION-MOBILE.md"] == named["INSTRUKCJA-MOBILE.md"]
+    assert {"init", "dispatch", "sync"} <= named["INSTRUCTION-MOBILE.md"]
