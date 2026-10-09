@@ -30,7 +30,11 @@ useful than a confident one that invented twelve answers.
    `list_screens` → `get_screen`, save it under `specs/NNN-<slug>/design/`, and
    translate it into this project's token and component vocabulary rather than
    copying its hex values: [references/design-input.md](references/design-input.md).
-   No Stitch screen means no design step — work from the user's description and
+   **Design files instead** (`designs/…` in the roadmap's Screens table, or any
+   file in `designs/` named after this page): copy them into
+   `specs/NNN-<slug>/design/`, look at each PNG, read each HTML file, and
+   translate them the same way.
+   No design at all means no design step — work from the user's description and
    mark the layout decisions.
 2. **Inventory the codebase before specifying anything.** This is what keeps the
    spec from inventing parallel infrastructure:

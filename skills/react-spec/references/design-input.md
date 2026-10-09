@@ -57,9 +57,28 @@ strategy, no permission rules and no validation. Every one of those is a
 `[NEEDS CLARIFICATION: ...]`, not a guess. The design being detailed is not
 evidence that the behaviour is decided.
 
-## No Stitch screen for this feature?
+## Design files in `designs/`
+
+The user's own screens -- PNG/JPG exports or screenshots, and HTML prototypes
+-- in `designs/` at the project root (`designs/README.md` says how they are
+named; `designs/mobile/` holds phone-sized variants, `name--empty.png` a state).
+
+1. Find this feature's files: the roadmap's `## Screens` table names them; if
+   it does not, match file names to the page and say which you matched.
+2. Copy them into `specs/NNN-<slug>/design/` -- `react-verify` compares
+   against what is there.
+3. **PNG/JPG:** look at the image. **HTML:** read the markup for structure,
+   copy and the colours it uses -- never paste its CSS or classes into the app.
+4. Then section 2 above applies unchanged: tokens, not hex; components, not
+   markup; every state the picture does not show becomes a marker.
+
+A PNG is a picture of one moment. It cannot say what a button does or what
+the list shows when empty -- those are questions, not guesses.
+
+## No design for this feature?
 
 Then there is no design step. Write the spec from the user's description and
 mark the layout decisions as markers so `react-clarify` can resolve them. Do
 not invent a design document nobody asked for — and if the layout is genuinely
-hard to agree on in prose, say so and ask for a Stitch screen first.
+hard to agree on in prose, say so and ask for a Stitch screen or a file in
+`designs/` first.

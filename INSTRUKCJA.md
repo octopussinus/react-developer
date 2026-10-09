@@ -226,7 +226,33 @@ okolicy." Zamieni to w ponumerowaną listę funkcji w sensownej kolejności i
 zapisze wszystkie pytania, na które nie umiał sam odpowiedzieć.
 
 Jeśli najpierw zaprojektowałeś strony w **Google Stitch**, powiedz mu o tym —
-użyje tych projektów.
+użyje tych projektów, dodaj MCP Serwer wg. instrukcji Google Stitch po przyciśnieciu eksportuj wyswietli sie taka opcja.
+
+**Masz własne projekty ekranów?** (Opcjonalnie.) Wrzuć je do folderu
+**`designs/`** w projekcie przed tym krokiem — obrazki PNG albo JPG każdego ekranu
+(zrzuty ekranu, eksport z Figmy, nawet zdjęcie szkicu) albo prototypy w HTML.
+Jeden plik na ekran, nazwany jak podstrona: `designs/home.png`,
+`designs/orders-list.png`. Wersje na telefon możesz dać do `designs/mobile/`.
+Asystent je obejrzy, zaplanuje według nich, zbuduje każdą stronę tak, żeby
+wyglądała jak projekt, i na końcu porówna z nimi swoje zrzuty ekranu. Plik
+`designs/README.md` w projekcie opisuje nazewnictwo.
+
+**Krok 2b — dokończ warunki wstępne.**
+
+Plan zaczyna się od krótkiej listy **warunków wstępnych** (prerequisites) —
+rzeczy, od których zależy każda strona, a które same nie są stronami: skąd dane
+przychodzą z serwera, logowanie, Twoje kolory, języki, menu wokół każdej strony.
+Są oznaczone `P1`, `P2`… a `react-dev status` pokazuje, które są gotowe.
+
+```
+/react-prerequisites
+```
+
+Przechodzi przez nie po kolei. Gdy któryś wymaga Twojej decyzji, pyta — jedno
+pytanie na raz, z rekomendacją — potem go buduje, sprawdza i oznacza jako gotowy.
+Uruchamiaj go, aż `react-dev status` pokaże wszystkie jako gotowe. **Nie zaczynaj
+pierwszej strony wcześniej**: strona zbudowana na niedokończonym warunku jest
+zbudowana na zgadywaniu, i `/react-feature` Ci to powie.
 
 ### Potem raz na każdą funkcję, w kółko
 
@@ -250,7 +276,7 @@ i oznaczy to.
 ```
 
 `1` to numer funkcji z planu. Przygotuje bezpieczną kopię do pracy i utworzy
-pliki. Zrobić skrypt który pusci claude jako osobny proces zeby mial osobny kontekst.
+pliki.
 
 **Krok 5 — zapisz dokładnie, co zostanie zbudowane.**
 
@@ -278,6 +304,19 @@ Tak samo jak w kroku 3, tylko teraz o tej jednej funkcji.
 
 To ten długi krok. Tu powstaje prawdziwy kod. Jak skończy, zajrzyj do karty
 przeglądarki — strona się zmieniła.
+
+**Kilka funkcji naraz zamiast jednej?** Gdy plan i warunki wstępne są gotowe, a
+pytania odpowiedziane, możesz budować kilka funkcji równolegle — każdą przez
+osobnego asystenta, w osobnej kopii projektu:
+
+```
+/react-parallel
+```
+
+Pokaże, które funkcje można bezpiecznie budować razem, zapyta ile, i je
+uruchomi. Szybciej, ale nie widzisz każdej z nich w trakcie pracy — przy
+pierwszych kilku funkcjach zostań przy `/react-implement`. Szczegóły:
+[Budowanie kilku funkcji naraz](#budowanie-kilku-funkcji-naraz).
 
 **Krok 8 — sprawdź, czy działa.**
 

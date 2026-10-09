@@ -91,6 +91,7 @@ NATIVE_SKILLS = ("react-native-port", "react-native-parallel", "react-native-ver
 WORKFLOW_ORDER = [
     "react-constitution",
     "react-roadmap",
+    "react-prerequisites",
     "react-feature",
     "react-spec",
     "react-clarify",
@@ -878,7 +879,7 @@ def status(
         console.print(
             f"[yellow]{len(blocking)} prerequisite(s) still open[/yellow] "
             f"({', '.join(q.number for q in blocking)}) — features depending on them "
-            "will stall. Finish those first."
+            "will stall. Finish those first: run the [cyan]react-prerequisites[/cyan] skill."
         )
     else:
         nxt = next((f for f in features if f.stage == "planned"), None)

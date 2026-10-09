@@ -22,7 +22,11 @@ roadmap nobody agreed to is a wrong plan executed quickly.
 codebase's tokens. Tool params, the polling rule and the token-direction decision:
 [references/stitch.md](references/stitch.md).
 
-**No Stitch?** Read the brief in full before splitting anything — decomposing from
+**Your own design files?** `ls designs/` -- HTML prototypes and PNG/JPG
+screens the user dropped in (see `designs/README.md`). Look at every one; each
+is a screen to map, exactly like a Stitch screen, recorded by its path.
+
+**Neither?** Read the brief in full before splitting anything — decomposing from
 the first third produces overlapping features.
 
 ## 2. Inventory what exists
@@ -41,8 +45,8 @@ screen spanning three domains is three. The binding constraint: a feature cannot
 import a sibling, so screens sharing a data shape belong together. Tests and a
 worked example: [references/decomposition.md](references/decomposition.md),
 [references/example.md](references/example.md).
-Record each screen's **resource name**, not just its title — `react-spec` fetches
-the design from it with one `get_screen` call.
+Record each screen's **resource name** (Stitch) or **path** (`designs/…`), not
+just its title — `react-spec` fetches the design from it directly.
 
 Separate **prerequisites** (API contract, auth, permissions, tokens, locales)
 from features — they block everything and are not features.
@@ -103,4 +107,4 @@ Instead, name only the ones that block feature 1 in the `## Next` block below.
 > **Do next:** `react-clarify` — decides those K one at a time, as a choice list.
 > Planning a whole product is a long conversation and all of it is now in
 > `specs/`, so **`/clear` once the questions are answered**, before feature 1.
-> **Nothing blocking?** `react-feature 1`.
+> **Questions answered?** `react-prerequisites` -- then `react-feature 1`.

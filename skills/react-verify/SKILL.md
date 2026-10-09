@@ -49,6 +49,9 @@ memory, without running anything.
    - screenshot at 375, 768 and 1440 px
    - check the console for errors; a clean-looking page with a red console is
      not a working page
+   - if `specs/NNN-<slug>/design/` holds the design (Stitch, or the user's
+     PNG/HTML from `designs/`), compare your screenshots with it: layout,
+     content, hierarchy. Report what differs; colours follow the tokens
 6. **Mutation check on the diff** when logic changed:
    ```bash
    npm run test:mutation

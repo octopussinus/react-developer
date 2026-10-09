@@ -29,7 +29,9 @@ generator already produces.
      their mock data is not yours, and reading it is how two features end up
      sharing a shape they should not.
    Take the slug and dependencies from there; do not re-derive them.
-   - If its dependencies are not built yet, say so and ask before continuing.
+   - If a **prerequisite** it needs (`P…` in its Needs column) is not done,
+     stop: run `react-prerequisites` first. Features are not built on guesses.
+   - If its feature dependencies are not built yet, say so and ask before continuing.
    - If it is sized **L**, stop: it needs splitting in the roadmap first.
    - Mark the entry in-progress in `ROADMAP.md`.
    With no roadmap, carry on from step 1 using what the user described.

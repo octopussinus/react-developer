@@ -26,3 +26,6 @@ public/mockServiceWorker.js
 
 # Originals saved by `react-dev sync --force-template`.
 .react-dev-backup
+
+# Your design files (HTML prototypes, screenshots) -- reference, never product code.
+designs/

@@ -87,3 +87,4 @@ Then:
 > this one). Every answer is recorded in the file, not just in this chat.
 > **Do next:** `react-implement` — the spec has no blocking unknowns left.
 > **Still markers that block now?** `react-clarify` again.
+> **Clarified `prerequisites.md`?** `react-prerequisites` builds them before any feature.

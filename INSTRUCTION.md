@@ -222,6 +222,31 @@ could not answer.
 If you designed your pages in **Google Stitch** first, tell it so and it will use
 those designs.
 
+**Have your own designs?** (Optional.) Put them in the **`designs/`** folder of
+your project before this step — PNG or JPG pictures of each screen (screenshots,
+Figma exports, even a photo of a sketch) or HTML prototypes. One file per screen,
+named after the page: `designs/home.png`, `designs/orders-list.png`. Phone-sized
+versions can go in `designs/mobile/`. The assistant looks at them, plans from
+them, builds each page to match, and compares its screenshots with them at the
+end. `designs/README.md` in your project explains the naming.
+
+**Step 2b — finish the prerequisites.**
+
+The plan starts with a short list of **prerequisites** — things every page
+depends on and that are not pages themselves: how data comes from the server,
+signing in, your colours, the languages, the menu that frames every page. They
+are listed as `P1`, `P2`… and `react-dev status` shows which are done.
+
+```
+/react-prerequisites
+```
+
+It goes through them in order. When one needs a decision from you it asks — one
+question at a time, with a recommendation — then builds it, checks it and marks it
+done. Run it until `react-dev status` shows them all done. **Do not start the
+first page before that**: a page built on an open prerequisite is built on a
+guess, and `/react-feature` will tell you so.
+
 ### Then once per feature, over and over
 
 **Step 3 — answer the important questions.**
@@ -272,6 +297,19 @@ Same as step 3, now about this one feature.
 
 This is the long one. It writes the actual code. Look at your browser tab when it
 finishes — the page will have changed.
+
+**Several features at once instead?** Once the plan and the prerequisites are
+settled and their questions answered, you can build several features in
+parallel — each by its own assistant, in its own copy of the project:
+
+```
+/react-parallel
+```
+
+It shows which features are safe to build together, asks how many, and starts
+them. Faster, but you do not watch each one as it works — for your first few
+features, stay with `/react-implement`. Details:
+[Building several features at once](#building-several-features-at-once).
 
 **Step 8 — check it works.**
 

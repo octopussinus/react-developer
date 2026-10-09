@@ -166,7 +166,13 @@ one at a time.
 screen spanning three domains is three. Screens sharing a data shape must live
 together, because a feature cannot import a sibling.
 
-**No Stitch?** It works from a written brief too:
+**Your own designs instead?** Drop PNG/JPG screens or HTML prototypes into
+`designs/` (one file per screen, named after the page; `designs/README.md` has
+the rules). `react-roadmap` maps them to features, `react-spec` copies each
+feature's files into its `design/` folder and translates them into your tokens,
+and `react-verify` compares its screenshots with them. Optional, like Stitch.
+
+**No designs at all?** It works from a written brief too:
 
 ```
 > /react-roadmap  docs/brief.md
@@ -191,6 +197,19 @@ as separate features, it merges them: they share one schema and one `api/`
 module, so splitting them forces a cross-feature import that lint forbids. Split
 by **domain**, not by screen. Anything sized **L** it refuses to start until you
 split it.
+
+**Finish the prerequisites first.** The `P1…Pn` rows are shared ground every
+feature stands on (API contract, auth, tokens, locales, app shell). Build them
+before feature 1:
+
+```
+> /react-prerequisites
+```
+
+It decides each one with you (one question at a time), builds it on a `pN-`
+branch, verifies, lands it and marks it ✅ in the index -- `react-dev status`
+shows them all ● when it is done. `react-feature` refuses to start a feature
+whose prerequisite is still open.
 
 Then work the list one at a time:
 

@@ -1,5 +1,10 @@
 # Translating a web file to React Native
 
+If the web app has phone-sized designs (`designs/mobile/<page>.png` or `.html`
+in the web app's folder), look at the one for the screen you translate: it
+shows how the phone version should be laid out where the web layout does not
+fit a phone. The web file still defines behaviour, keys and props.
+
 The web file is the spec. Keep its **path, export names, prop names, translation
 keys and Tailwind classes**; change only what React Native cannot do. The
 template's own translations are the house style -- read them first:
