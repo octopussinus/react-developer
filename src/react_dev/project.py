@@ -76,6 +76,31 @@ def classify_drift(
     return sorted(outdated), sorted(customised)
 
 
+def restamp(
+    project: Path, stamped: dict[str, str], current: dict[str, str]
+) -> dict[str, str]:
+    """What the template last gave this project, after a `--with-template` run.
+
+    A file now holding the template's content is stamped with the template's
+    hash. A file left alone keeps the hash it was given, which is the baseline
+    its owner's edit diverged from -- restamping it would class the next
+    template change to it as "untouched, safe to update" and overwrite the edit.
+
+    Stamping all-or-nothing is what made `--with-template` a one-shot: the run
+    that updated files recorded nothing, because *having had* outdated files was
+    read as "not yet synced". Next run those same files no longer matched their
+    stale stamp, so they were read as the user's and never updated again.
+    """
+    out = dict(stamped)
+    for rel, template_hash in current.items():
+        target = project / rel
+        if not target.is_file():
+            continue
+        if hashlib.sha256(target.read_bytes()).hexdigest()[:12] == template_hash:
+            out[rel] = template_hash
+    return out
+
+
 def template_fingerprint(*roots: Path) -> str:
     """Content hash of one or more template trees.
 
@@ -161,6 +186,8 @@ REQUIRED_SCRIPTS: tuple[tuple[str, str], ...] = (
     ("components:check", "component duplication across modules (react-analyze)"),
     ("build", "the production build -- catches what dev transpiles away"),
     ("gen", "the deterministic generator"),
+    ("storybook", "the component workshop, on this checkout's own port"),
+    ("build-storybook", "the workshop as a static site for a reviewer"),
 )
 
 #: Generator targets the skills name directly.
@@ -194,6 +221,13 @@ REQUIRED_PATHS: tuple[tuple[str, str], ...] = (
     ("eslint-rules/index.js", "where react-feedback promotes a rule"),
     ("src/dev/feedback-toolbar.tsx", "the in-app feedback toolbar (react-feedback)"),
     ("tools/feedback-plugin.mjs", "the dev endpoint that writes .ai/inbox/"),
+    ("tools/dev-port.mjs", "one port per checkout -- dev, Playwright and Storybook"),
+    ("scripts/storybook.mjs", "serves Storybook on that port (the Storybook button)"),
+    ("src/dev/dock.ts", "opens the toolbar's panels beside each other, not on top"),
+    ("src/dev/rows.ts", "the labelled rows with an (i), shared by feedback and Dev"),
+    ("src/dev/takeover.ts", "the frames Map and Storybook open in"),
+    ("src/dev/storybook.ts", "the Storybook button"),
+    ("src/dev/route-highlight.ts", "outlines a page's links in the map's colours"),
 )
 
 #: Packages the dev tooling imports directly.

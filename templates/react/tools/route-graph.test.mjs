@@ -42,7 +42,13 @@ const FILES = {
   // Paths as constants and builders -- how every real project writes them.
   'src/config/paths.ts': `
     const ORDERS = '/orders';
-    export const paths = { home: '/', orders: ORDERS, signIn: '/sign-in' } as const;
+    export const paths = {
+      home: '/',
+      orders: ORDERS,
+      signIn: '/sign-in',
+      // Designed, linked to, never registered: the dead end.
+      billing: '/settings/billing',
+    } as const;
     export const orderLinks = {
       detail: (orderId: string) => \`\${ORDERS}/\${encodeURIComponent(orderId)}\`,
     };
@@ -67,7 +73,15 @@ const FILES = {
           <Link to={paths.orders}>All orders</Link>
           <LinkCta to={orderLinks.detail(lastOrderId)}>Last order</LinkCta>
           <a href={externalDocs}>Docs</a>
+          <Link to={paths.billing}>Billing</Link>
+          <a href="/manual.pdf">Manual</a>
           {status === 'x' ? <Link to={{ search: '?a=1' }}>Sort</Link> : null}
+          <LinkCta
+            to={paths.signIn}
+            aria-label="Sign in"
+          >
+            Sign in
+          </LinkCta>
         </div>
       );
     }
@@ -80,7 +94,13 @@ const FILES = {
     export function ListPage({ status }: { status: string }) {
       const navigate = useNavigate();
       if (status === 'unauthenticated') return <Navigate to={paths.signIn} replace />;
-      return <button onClick={() => void navigate(paths.home)}>Home</button>;
+      return (
+        <button
+          onClick={() => void navigate(paths.home)}
+        >
+          Home
+        </button>
+      );
     }
   `,
 
@@ -121,11 +141,44 @@ function from(path) {
 
 describe('buildRouteGraph', () => {
   it('lists every registry route as a node', () => {
-    expect(graph.nodes.map((node) => node.path).sort()).toEqual([
-      '/',
-      '/orders',
-      '/orders/:orderId',
-      '/sign-in',
+    expect(
+      graph.nodes
+        .filter((node) => !node.missing)
+        .map((node) => node.path)
+        .sort(),
+    ).toEqual(['/', '/orders', '/orders/:orderId', '/sign-in']);
+  });
+
+  it('draws the page a button promises and nobody built', () => {
+    /*
+     * The edge used to be dropped for having no route to land on, which is the
+     * most expensive thing a site map can hide: the design says the button is
+     * there, the button IS there, and the only way to find out it goes nowhere
+     * is to click it in a browser and land on a blank page.
+     */
+    const ghost = graph.nodes.find((node) => node.path === '/settings/billing');
+    expect(ghost).toBeDefined();
+    expect(ghost.missing).toBe(true);
+    expect(ghost.module).toBeNull();
+
+    const edge = from('/').find((e) => e.to === '/settings/billing');
+    expect(edge).toBeDefined();
+    expect(edge.missing).toBe(true);
+    expect(edge.component).toBe('HomePage');
+    expect(edge.label).toBe('Billing');
+    expect(edge.file).toBe('src/modules/home/home-page.tsx');
+  });
+
+  it('does not report a file in public/ as a page nobody built', () => {
+    // `<a href="/manual.pdf">` is a download. Counting it would put a box
+    // labelled /manual.pdf on the map and a line in every report.
+    expect(graph.nodes.some((node) => node.path === '/manual.pdf')).toBe(false);
+    expect(graph.edges.some((edge) => edge.to === '/manual.pdf')).toBe(false);
+  });
+
+  it('says a registered page is not missing', () => {
+    expect(graph.edges.filter((edge) => edge.missing).map((edge) => edge.to)).toEqual([
+      '/settings/billing',
     ]);
   });
 
@@ -166,6 +219,24 @@ describe('buildRouteGraph', () => {
       expect(edge.file).toMatch(/^src\//);
       expect(edge.line).toBeGreaterThan(0);
     }
+  });
+
+  it('reports the line of the element, not of the attribute inside it', () => {
+    /*
+     * The line is read twice: by you, opening it in an editor, and by the map's
+     * ↗, which looks for that exact file:line in the rendered DOM. `to=` sits a
+     * line below `<ActionLink` all over a real codebase, and reporting it left
+     * the map one line off the page -- so the outline found nothing and the page
+     * looked as though it had no links.
+     */
+    const lineOf = (edge) => FILES[edge.file].split('\n')[edge.line - 1] ?? '';
+
+    const link = from('/').find((edge) => edge.to === '/sign-in');
+    expect(link).toBeDefined();
+    expect(lineOf(link)).toContain('<LinkCta');
+
+    const handler = from('/orders').find((edge) => edge.kind === 'navigate');
+    expect(lineOf(handler)).toContain('<button');
   });
 
   it('invents no mystery arrows', () => {

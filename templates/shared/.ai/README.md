@@ -37,6 +37,35 @@ then pick **what you want** — optionally with a note — and an entry lands he
 }
 ```
 
+## `runs/` — what the parallel workers actually did
+
+`react-dev dispatch` builds several roadmap features at once, each as a real
+headless agent process (`claude -p`, `codex exec`, `gemini --prompt`) in its own
+git worktree. Every one of those sessions is written here:
+
+```
+.ai/runs/<timestamp>/
+  run.json                 the batch: agent, every worker, every verdict
+  <feature>/
+    command.txt            the exact argv, reproducible by hand
+    prompt.md              what the worker was told
+    stream.jsonl           every event the CLI emitted, raw
+    transcript.md          the readable view: tool calls, results, final answer
+    stderr.log             anything it wrote to stderr
+    result.json            status, exit code, duration, cost, summary
+```
+
+`stream.jsonl` is written before any parsing, so it is complete even if a CLI
+changes its event shape; `transcript.md` is the best-effort readable view of it.
+
+A worker's **status is not its exit code**. An agent that stopped on a
+`[NEEDS CLARIFICATION]` it is not allowed to answer exits 0, exactly like one
+that finished — so `blocked` is a separate verdict from `ok`, and from `failed`
+(non-zero exit, or an error the agent reported) and `timeout`.
+
+`react-dev runs` lists every batch; `react-dev runs --id <run>` opens one.
+Logs are gitignored: they are local history, not repository content.
+
 ## The `Map` button — the whole site, and how pages connect
 
 Opens a graph of every route and every way the code can navigate between them.

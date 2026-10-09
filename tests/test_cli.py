@@ -306,6 +306,40 @@ def test_sync_updates_untouched_files_but_never_your_edits(made: Path, monkeypat
     assert "are yours" in result.output
 
 
+def test_sync_records_what_it_updated_so_the_next_sync_still_works(made: Path, monkeypatch):
+    """`--with-template` used to work exactly once on any customised project.
+
+    The stamp was written all-or-nothing: a run that *had* outdated files was
+    read as "not yet synced" and recorded nothing, so on the next run the files
+    it had just written no longer matched their stale stamp, were classified as
+    the user's own, and were never updated again.
+    """
+    import hashlib
+
+    monkeypatch.chdir(made)
+    manifest = json.loads((made / MANIFEST).read_text(encoding="utf-8"))
+
+    # A file of their own, so the run cannot resolve cleanly...
+    mine = made / "src" / "components" / "atoms" / "button.tsx"
+    mine.write_text("// my own button\n", encoding="utf-8")
+    # ...and one the template has moved on from.
+    stale = "// an older template version\n"
+    (made / "vite.config.ts").write_text(stale, encoding="utf-8")
+    manifest["fileHashes"]["vite.config.ts"] = hashlib.sha256(stale.encode()).hexdigest()[:12]
+    (made / MANIFEST).write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    assert runner.invoke(app, ["sync", str(made), "--with-template"]).exit_code == 0
+
+    stamped = json.loads((made / MANIFEST).read_text(encoding="utf-8"))["fileHashes"]
+    now = hashlib.sha256((made / "vite.config.ts").read_bytes()).hexdigest()[:12]
+    # What it brought up to date is recorded, even though other files still differ.
+    assert stamped["vite.config.ts"] == now
+    # What it left alone keeps the baseline the edit diverged from -- restamping
+    # it would read the next template change as safe to overwrite.
+    key = "src/components/atoms/button.tsx"
+    assert stamped[key] == manifest["fileHashes"][key]
+
+
 def test_sync_with_template_adds_missing_files_without_overwriting(made: Path, monkeypatch):
     """The whole point: recover a drifted project without discarding work."""
     import shutil
@@ -1562,11 +1596,16 @@ def test_parallel_never_starts_work_built_on_an_unanswered_question(tmp_path):
 
 
 def test_the_worker_is_worktree_isolated_and_cannot_land_anything():
-    agent = (REPO_ROOT / "templates/shared/.claude/agents/react-feature-worker.md").read_text()
-    assert "isolation: worktree" in agent, "parallel agents must not share a checkout"
+    from react_dev.agents import AGENTS
+    from react_dev.runner import worker_prompt
+
+    brief = worker_prompt(AGENTS["claude"], "2", "dogs-profile")
     # Landing is sequential: each branch passed its gate against a base that is
     # not the base it would land on.
-    assert "Never run `react-ship` or `react-merge`" in agent
+    assert "Never run" in brief and "react-ship" in brief and "react-merge" in brief
+    assert "never push" in brief
+    # Nobody is watching, so a guess is invisible until it is merged.
+    assert "NEEDS CLARIFICATION" in brief and "stop and say so" in brief
 
     skill = (REPO_ROOT / "skills" / "react-parallel" / "SKILL.md").read_text()
     assert "single-lane" in skill.lower()
@@ -1679,21 +1718,26 @@ def test_subagents_are_granted_the_mcp_servers_their_skills_use():
     assert "mcp__playwright__*" in tools_of("react-verify")
     # Focus order and live regions can only be checked in a running browser.
     assert "mcp__playwright__*" in tools_of("react-review")
-    # The worker runs react-spec (Stitch), the verify chain (Playwright) and
-    # react-component (shadcn registry).
-    worker = tools_of("react-feature-worker")
-    for server in ("mcp__stitch__*", "mcp__playwright__*", "mcp__shadcn__*"):
-        assert server in worker, f"the worker cannot reach {server}"
-
     # Static analysis needs no browser; granting one would only widen its reach.
     assert "mcp__" not in tools_of("react-analyze")
+
+    # The parallel worker is NOT one of these. It is a separate CLI process with
+    # its own configuration, so it reaches Stitch, Playwright and the shadcn
+    # registry the same way an interactive session does -- there is no `tools`
+    # allowlist in between to forget a server in.
+    assert not (agents / "react-feature-worker.md").exists()
 
 
 def test_parallel_requires_design_assets_to_be_committed_first():
     """A worktree branches from main: uncommitted files do not exist in it."""
     skill = (REPO_ROOT / "skills" / "react-parallel" / "SKILL.md").read_text()
-    assert "Commit anything the workers need" in skill
+    assert "branches from the last COMMIT" in skill
     assert "builds from the prose" in skill
+
+    # And the command says so itself, because the skill is advice and the
+    # warning has to reach whoever typed `dispatch` without reading it.
+    source = (REPO_ROOT / "src/react_dev/__init__.py").read_text()
+    assert "Workers branch from HEAD and will not" in source
 
 
 def test_a_worker_installs_dependencies_before_anything_else():
@@ -1704,9 +1748,12 @@ def test_a_worker_installs_dependencies_before_anything_else():
     `npm ci` rather than `npm install`: it installs exactly the lockfile and
     errors when package.json and the lock disagree.
     """
-    worker = (REPO_ROOT / "templates/shared/.claude/agents/react-feature-worker.md").read_text()
-    assert "npm ci" in worker
-    assert "node_modules" in worker and "gitignored" in worker
+    from react_dev.agents import AGENTS
+    from react_dev.runner import worker_prompt
+
+    brief = worker_prompt(AGENTS["codex"], "2", "dogs-profile")
+    assert "npm ci" in brief
+    assert "node_modules" in brief and "gitignored" in brief
 
     # And again after the rebase, which can pull in a dependency the base gained.
     skill = (REPO_ROOT / "skills" / "react-parallel" / "SKILL.md").read_text()
@@ -1751,3 +1798,31 @@ def test_a_finished_prerequisite_stops_blocking(tmp_path):
     # Mark it done in the index -- the feature file is untouched.
     write_index("✅ done", "open")
     assert [f.slug for f in parallel_batch(tmp_path).batch] == ["landing"]
+
+
+def test_both_beginner_guides_describe_the_same_commands_the_cli_has():
+    """The guides are for someone who will type exactly what they read.
+
+    Two ways they rot, and both have happened: a command is renamed and the
+    guide still names the old one, or one language is updated and the other
+    quietly falls a release behind. Neither shows up in any other check --
+    nothing imports a Markdown file.
+    """
+    import re
+
+    real = {command.name or command.callback.__name__ for command in app.registered_commands}
+
+    named = {}
+    for guide in ("INSTRUCTION.md", "INSTRUKCJA.md"):
+        text = (REPO_ROOT / guide).read_text(encoding="utf-8")
+        named[guide] = set(re.findall(r"react-dev ([a-z][a-z-]*)", text))
+        unknown = named[guide] - real
+        assert not unknown, f"{guide} tells the reader to run: {sorted(unknown)}"
+
+    only_en = named["INSTRUCTION.md"] - named["INSTRUKCJA.md"]
+    only_pl = named["INSTRUKCJA.md"] - named["INSTRUCTION.md"]
+    assert not only_en, f"only in English: {sorted(only_en)}"
+    assert not only_pl, f"only in Polish: {sorted(only_pl)}"
+
+    # The two this change added, so neither guide can silently lose them.
+    assert {"dispatch", "runs"} <= named["INSTRUCTION.md"]

@@ -77,13 +77,13 @@ anything in the spec you could not implement — with the reason.
 ## Do not stop at the code — run the checks yourself
 
 When the implementation is done, **continue straight into `react-verify`, then
-`react-analyze`, then `react-review`** without waiting to be asked. All three take
-their input from files you just wrote, all three are read-mostly, and making the
-user type three commands to find out whether your own work holds up is a chore
-you created.
+`react-analyze`, then `react-review`** without waiting to be asked. All three
+take their input from files you just wrote, and making the user type three
+commands to find out whether your own work holds up is a chore you created.
 
-Delegate each to its subagent (`react-verify`, `react-analyze`, `react-review`)
-so their output stays out of this conversation and only the verdicts come back.
+Give each a fresh context if your host can (Claude Code has a subagent per
+stage, returning only the verdict); elsewhere just run the three in order. The
+chain is the requirement; the isolation is a bonus.
 
 **A red gate gets three attempts, then you stop.** Fix only what the failure
 pointed at, re-run the WHOLE gate after each attempt, and never reach green by

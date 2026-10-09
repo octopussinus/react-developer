@@ -374,9 +374,10 @@ react-dev next
 ```
 
 It looks at where your project is, closes nothing, and opens a **brand new
-assistant session** already pointed at your next step. A new session has no
-memory of the old one by definition, so the clean slate is automatic rather than
-something you have to do at the right moment.
+assistant session** already pointed at your next step — whichever assistant you
+have installed, phrased the way that one expects. A new session has no memory of
+the old one by definition, so the clean slate is automatic rather than something
+you have to do at the right moment.
 
 One honest limit, and it tells you: only what is **written into files** comes
 along. At a feature boundary that is everything. In the middle of a feature, if
@@ -435,7 +436,9 @@ asked for — so you never have to describe where something is.
 ### Nothing you send disappears
 
 The **List** button, next to Feedback, shows everything you have sent and where
-it stands:
+it stands. It opens **beside** whatever is already open rather than on top of it,
+so you can read your list while the feedback panel is still up — and the same
+goes for every other panel in that corner:
 
 | Label           | Means                                                         |
 | --------------- | ------------------------------------------------------------- |
@@ -467,19 +470,23 @@ Every entry, at any stage, also has two buttons of its own:
 Next to **Feedback** there is a **Dev** button. Click it and every piece of the
 page gets a coloured outline:
 
-| Colour     | What it means                                                                |
-| ---------- | ---------------------------------------------------------------------------- |
-| **Green**  | Reused — this already existed, the assistant did not rebuild it              |
-| **Purple** | New, but put in the shared pile — only right if another page will use it too |
-| **Blue**   | Written specially for the feature you are working on                         |
-| **Grey**   | The frame around the page: menu, layout                                      |
+| Colour         | What it means                                                                |
+| -------------- | ---------------------------------------------------------------------------- |
+| **Green**      | Reused — this already existed, the assistant did not rebuild it              |
+| **Purple**     | New, but put in the shared pile — only right if another page will use it too |
+| **Blue**       | Written specially for the feature you are working on                         |
+| **Light blue** | Feature code that is older than this piece of work                           |
+| **Grey**       | The frame around the page: menu, layout                                      |
 
 This is the quickest way to answer "did it reuse my stuff, or quietly build a
 second version of the same thing?" Lots of blue where you expected green usually
 means something was rebuilt that already existed.
 
-The panel in the corner counts each group; click a row to hide it. Press **Esc**
-or click **Dev** again to turn it off.
+The panel in the corner looks and works like the feedback panel: it counts each
+group, and every row has an **(i)** that explains what that colour means and what
+to do about it — so you never have to guess what "New, placed as shared" is
+telling you. Click a row to hide that group. Press **Esc** or click **Dev** again
+to turn it off.
 
 **About "I want this elsewhere too":** the assistant will ask you _which page_
 needs it as well. That is on purpose. Making something shared before two pages
@@ -492,6 +499,10 @@ is not a good enough reason, and it will say so.
 
 The **Map** button, next to Feedback, draws every page of your site and every
 button or link that moves between them.
+
+It opens on **half the screen, beside your site** rather than over it — your page
+is still there, still working, just narrower. **Drag the left edge of the map** to
+give either side more room; it remembers the width you chose.
 
 It does not throw all of it at you at once. It starts at the home page, and any
 page that leads somewhere shows a small `▸` and a number — `▸ +6` means six ways
@@ -513,6 +524,26 @@ component contains it, and the **file and line number** — with a button to cop
 that. So the map does not just say "these two pages are connected", it says
 where to go and change it.
 
+### Show me, on the page
+
+Every box has a small **↗**. Press it and two things happen at once: your site
+jumps to that page in the other half, and **every link out of that page gets a
+coloured outline, on the page itself**, labelled with where it goes.
+
+Links to the same destination share a colour, and the arrow in the map is drawn in
+that same colour — so "the pink ones go to the dog profile" is something you can
+see in both halves at once. If the first outlined link is below the fold, the page
+scrolls to it.
+
+Under the map you get the count: **"4 of 6 on screen"**. The other two are greyed
+out, and that is the useful part — a link can exist in the code and not be drawn
+right now, because it lives inside a closed menu, or in an empty state, or in a
+branch this data never reaches. Four outlines with no count would simply read as
+"there are four".
+
+A page with a `:` in its name (`/dogs/:dogId`) cannot be visited as written, so it
+opens with a `1` in place of the parameter (`/dogs/1`) and says so.
+
 Some buttons decide where to go while the app is running, and no amount of
 reading the code can tell you that in advance. Those are drawn as a dashed arrow
 to a **"? decided at runtime"** box rather than hidden — clicking it still shows
@@ -520,6 +551,29 @@ you the component and the line, so you can go and read what it does.
 
 Worth opening after building a few pages: it is the fastest way to spot a page
 you built but forgot to link to from anywhere.
+
+---
+
+## Seeing your building blocks on their own
+
+The **Storybook** button, next to Map, opens your project's component
+library — every button, badge, card and form field on its own, away from any
+page, with the knobs to try each variation.
+
+It is the place to answer "what do I already have?" before asking for something
+new, and to see a component in every state at once: a badge in all four tones, a
+button disabled, a form field with an error on it.
+
+It needs one thing running. In a second terminal, in your project:
+
+```
+npm run storybook
+```
+
+If it is not running, the button says so and shows you that exact command. The
+address it uses is **this project's own** — two projects open at the same time
+cannot end up showing you each other's components, which is the sort of mix-up
+you would not notice.
 
 ## Using the same component in another project
 
@@ -671,6 +725,59 @@ Worth running every week or so, and after any review. It is the only part of the
 system that makes the assistant get better at _your_ project rather than staying
 the same.
 
+## Building several features at once
+
+The normal loop is one feature at a time, and for your first few that is the
+right way. Once the plan is settled, the assistant can also build several at
+once — each one in its own **separate copy of your project**, by its own
+assistant, all at the same time.
+
+What you type:
+
+```
+react-dev parallel
+```
+
+That prints which features are safe to build together **and why the rest are
+not**. Two features that touch the same part of the app are never in the same
+batch: both copies would edit the same file, and the two edits would be
+combined into something that does not work.
+
+Then:
+
+```
+react-dev dispatch
+```
+
+Each one gets its own assistant, running on its own, with no window for you to
+watch. You see a live table instead:
+
+```
+  #    Feature        Status     Time   Doing
+  011  medications    ok          14m   ok
+  017  matches        blocked      3m   stopped on a [NEEDS CLARIFICATION]
+  024  product        running     11m   Bash npm run verify
+```
+
+- **ok** — finished, all checks green
+- **blocked** — it hit a question it is not allowed to answer by itself, and
+  stopped. That is the correct behaviour, not a failure
+- **failed** — something broke; the reason is printed
+
+**Nothing is lost.** Every one of those assistants writes its whole session to
+`.ai/runs/`, and you can read it afterwards: every command it ran, every file it
+touched, what it said at the end, and how long it took. Open
+`transcript.md` inside the folder it names. `react-dev runs` lists every batch
+you have ever run, and `react-dev runs --id <name>` opens one of them.
+
+This works the same with Claude Code, Codex or Gemini CLI — `--agent codex` and
+`--agent gemini` pick one. The pipeline does not change; only who runs it.
+
+**They do not publish anything.** Each one stops at "finished and checked". You
+land them one at a time afterwards, and the assistant walks you through it —
+because two finished features are not the same as two features that work
+together, and the only way to find out is to check them combined.
+
 ## When something goes wrong
 
 | What you see                                           | What to do                                                                                                                                                |
@@ -694,8 +801,9 @@ the same.
    keeps everything in a shape the tools understand.
 3. **Do not answer "whatever you think" to everything** in step 3 and 6. Two or
    three real decisions there save days.
-4. **Do not run two features at once.** Finish one through step 11, then start the
-   next. The system is built around one at a time.
+4. **Do not run two features at once by hand.** Finish one through step 11,
+   then start the next. When you genuinely want several, use `react-dev
+dispatch` — it keeps them apart properly.
 
 ---
 

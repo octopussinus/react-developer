@@ -11,7 +11,7 @@ import { componentMapPlugin } from './tools/component-map-plugin.mjs';
 // @ts-expect-error -- plain .mjs dev plugin, no types needed
 import { routeGraphPlugin } from './tools/route-graph.mjs';
 // @ts-expect-error -- plain .mjs helper, no types needed
-import { devPort } from './tools/dev-port.mjs';
+import { devPort, storybookUrl } from './tools/dev-port.mjs';
 
 export default defineConfig({
   plugins: [
@@ -35,6 +35,13 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  /*
+   * Where this checkout's Storybook listens, for the toolbar's Storybook button.
+   * Derived, never written twice: `npm run storybook` reads the same helper, so
+   * the button cannot point at a port nothing is serving -- or at a different
+   * checkout's Storybook, which is worse because it looks right.
+   */
+  define: { __STORYBOOK_URL__: JSON.stringify(storybookUrl()) },
   server: {
     /*
      * One port per checkout, and `strictPort` so a taken one is an ERROR.

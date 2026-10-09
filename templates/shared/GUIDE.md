@@ -758,7 +758,7 @@ different `output.path`, since `defineConfig` takes one config, not a list.
 ### See every component state — Storybook
 
 ```bash
-npm run storybook        # http://localhost:6006
+npm run storybook        # port derived from this checkout; it prints the URL
 npm run build-storybook  # static site for a PR or a reviewer
 ```
 

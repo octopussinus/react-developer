@@ -26,6 +26,9 @@
  */
 
 import { mountComponentOverlay } from './component-overlay';
+import { createDock, DOCK_CSS } from './dock';
+import { renderChoices, ROWS_CSS } from './rows';
+import { mountStorybook } from './storybook';
 import { mountSwitchers } from './switchers';
 
 interface Fiber {
@@ -192,6 +195,8 @@ export function mountFeedbackToolbar(): void {
   shadow.innerHTML = `
     <style>
       :host { all: initial; }
+      ${DOCK_CSS}
+      ${ROWS_CSS}
       .bar { position: fixed; bottom: 16px; right: 16px; z-index: 2147483647;
              font: 500 13px system-ui, sans-serif; display: flex; gap: 8px; }
       button { border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer;
@@ -200,8 +205,7 @@ export function mountFeedbackToolbar(): void {
       .ring { position: fixed; pointer-events: none; z-index: 2147483646;
               outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 4px;
               transition: all 60ms linear; }
-      .panel { position: fixed; bottom: 16px; right: 16px; z-index: 2147483647;
-               width: 320px; padding: 14px; border-radius: 12px; background: #111827;
+      .panel { width: 320px; padding: 14px; border-radius: 12px; background: #111827;
                color: #f9fafb; font: 400 13px system-ui, sans-serif;
                box-shadow: 0 10px 30px rgb(0 0 0 / .4); }
       .panel h2 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
@@ -211,19 +215,7 @@ export function mountFeedbackToolbar(): void {
                         margin-bottom: 10px; padding: 9px; border-radius: 7px;
                         border: 1px solid #374151; background: #1f2937; color: #f9fafb;
                         font: inherit; line-height: 1.45; resize: vertical; }
-      .intents { display: flex; flex-direction: column; gap: 6px; }
-      .intents .row { display: flex; align-items: stretch; gap: 4px; }
-      .intents .row button.pick { flex: 1; text-align: left; background: #1f2937; font: inherit; }
-      .intents .row button.pick:hover, .intents .row button.pick:focus-visible { background: #2563eb; }
-      .intents .row button.info { width: 28px; padding: 0; background: #1f2937; color: #9ca3af;
-                                  font: 600 12px system-ui, sans-serif; }
-      .intents .row button.info:hover, .intents .row button.info:focus-visible {
-        background: #374151; color: #f9fafb; }
-      .explain { margin: 8px 0 0; padding: 7px 8px; border-radius: 6px; background: #0b1220;
-                 font-size: 11px; line-height: 1.45; color: #cbd5e1; }
-      .explain[hidden] { display: none; }
-      .list { position: fixed; bottom: 60px; right: 16px; z-index: 2147483647; width: 340px;
-              max-height: 62vh; overflow: auto; padding: 12px; border-radius: 12px;
+      .list { width: 340px; max-height: 62vh; padding: 12px; border-radius: 12px;
               background: #111827; color: #f9fafb; font: 400 12px system-ui, sans-serif;
               box-shadow: 0 10px 30px rgb(0 0 0 / .4); }
       .list h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; }
@@ -248,19 +240,12 @@ export function mountFeedbackToolbar(): void {
       .tag { position: absolute; top: -9px; left: -2px; padding: 1px 5px;
              border-radius: 4px; color: #fff; white-space: nowrap;
              font: 600 10px/1.4 system-ui, sans-serif; }
-      .legend { position: fixed; bottom: 60px; right: 16px; z-index: 2147483647;
-                width: 268px; padding: 12px; border-radius: 12px; background: #111827;
-                color: #f9fafb; font: 400 12px system-ui, sans-serif;
+      .legend { width: 320px; padding: 14px; border-radius: 12px; background: #111827;
+                color: #f9fafb; font: 400 13px system-ui, sans-serif;
                 box-shadow: 0 10px 30px rgb(0 0 0 / .4); }
-      .legend h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; }
-      .legend .row { display: flex; align-items: center; gap: 8px; width: 100%;
-                     padding: 5px 6px; background: transparent; color: inherit;
-                     font: inherit; border-radius: 6px; }
-      .legend .row:hover { background: #1f2937; }
-      .legend .row[data-off="true"] { opacity: .4; text-decoration: line-through; }
-      .legend .row i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-      .switch-menu { position: fixed; bottom: 60px; right: 16px; z-index: 2147483647;
-                     width: 190px; padding: 10px; border-radius: 10px; background: #111827;
+      .legend h2 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
+      .legend .where { margin: 0 0 10px; font-size: 11px; color: #9ca3af; }
+      .switch-menu { width: 190px; padding: 10px; border-radius: 10px; background: #111827;
                      color: #f9fafb; font: 400 12px system-ui, sans-serif;
                      box-shadow: 0 10px 30px rgb(0 0 0 / .4); }
       .switch-menu h3 { margin: 6px 0 4px; font-size: 10px; font-weight: 600;
@@ -271,7 +256,7 @@ export function mountFeedbackToolbar(): void {
                             border-radius: 6px; }
       .switch-menu button:hover { background: #1f2937; }
       .switch-menu button[data-on="true"] { background: #2563eb; }
-      .legend p { margin: 8px 0 0; font-size: 10px; line-height: 1.45; color: #9ca3af; }
+      .legend .note { margin: 8px 0 0; font-size: 11px; line-height: 1.45; color: #9ca3af; }
     </style>
     <div class="bar">
       <button type="button" id="map" title="Site map: pages and how they link">Map</button>
@@ -283,7 +268,7 @@ export function mountFeedbackToolbar(): void {
       <h2>What do you want here?</h2>
       <p class="where" id="where"></p>
       <textarea id="note" placeholder="Describe it in your own words — the more detail, the less guessing. Optional."></textarea>
-      <div class="intents" id="intents"></div>
+      <div class="rows" id="intents"></div>
       <p class="explain" id="explain" hidden></p>
       <button type="button" class="cancel" id="cancel">Cancel (Esc)</button>
     </div>
@@ -297,35 +282,23 @@ export function mountFeedbackToolbar(): void {
   const listPanel = shadow.getElementById('list') as HTMLDivElement;
   const explain = shadow.getElementById('explain') as HTMLParagraphElement;
 
-  // Build the intent rows: a wide button to choose, and an (i) that says what
-  // choosing it will actually make the agent do.
-  const intentsBox = shadow.getElementById('intents') as HTMLDivElement;
-  for (const intent of INTENTS) {
-    const row = document.createElement('div');
-    row.className = 'row';
+  // Both are declared in the markup above for readability, then handed to the
+  // dock, which is the only thing that decides where a panel sits.
+  const dock = createDock(shadow);
+  dock.add(panel);
+  dock.add(listPanel);
 
-    const pick = document.createElement('button');
-    pick.type = 'button';
-    pick.className = 'pick';
-    pick.dataset['intent'] = intent.id;
-    pick.textContent = intent.label;
-
-    const info = document.createElement('button');
-    info.type = 'button';
-    info.className = 'info';
-    info.textContent = 'i';
-    info.setAttribute('aria-label', `What "${intent.label}" does`);
-    const show = () => {
-      explain.textContent = intent.explains;
-      explain.hidden = false;
-    };
-    info.addEventListener('click', show);
-    info.addEventListener('mouseenter', show);
-    info.addEventListener('focus', show);
-
-    row.append(pick, info);
-    intentsBox.appendChild(row);
-  }
+  // A wide button to choose, and an (i) that says what choosing it will
+  // actually make the agent do. The Dev legend uses the same control.
+  renderChoices(
+    shadow.getElementById('intents') as HTMLDivElement,
+    INTENTS.map((intent) => ({
+      label: intent.label,
+      explains: intent.explains,
+      onPick: () => void sendIntent(intent.id),
+    })),
+    explain,
+  );
   const where = shadow.getElementById('where') as HTMLParagraphElement;
   const note = shadow.getElementById('note') as HTMLTextAreaElement;
 
@@ -333,7 +306,7 @@ export function mountFeedbackToolbar(): void {
   let pending: Element | null = null;
 
   function closePanel(): void {
-    panel.hidden = true;
+    dock.close(panel);
     pending = null;
     note.value = '';
     explain.hidden = true;
@@ -378,7 +351,7 @@ export function mountFeedbackToolbar(): void {
     pending = target;
     const source = resolveSource(target);
     where.textContent = source ? `${source.file}:${source.line}` : cssPath(target);
-    panel.hidden = false;
+    dock.open(panel);
     note.focus();
   }
 
@@ -540,33 +513,32 @@ export function mountFeedbackToolbar(): void {
 
     pickButton.textContent = 'Sent ✓';
     window.setTimeout(() => setPicking(false), 1200);
-    if (!listPanel.hidden) await renderList();
+    if (dock.isOpen(listPanel)) await renderList();
   }
 
   const inboxButton = shadow.getElementById('inbox') as HTMLButtonElement;
   inboxButton.addEventListener('click', () => {
-    const next = listPanel.hidden;
-    listPanel.hidden = !next;
+    const next = dock.toggle(listPanel);
     inboxButton.dataset['active'] = String(next);
     if (next) void renderList();
   });
 
-  mountSwitchers(shadow.querySelector('.bar') as HTMLElement, shadow);
+  mountSwitchers(shadow.querySelector('.bar') as HTMLElement, dock);
 
   (shadow.getElementById('map') as HTMLButtonElement).addEventListener('click', () => {
     void import('./route-map').then((m) => m.openRouteMap());
   });
 
-  mountComponentOverlay(shadow.querySelector('.bar') as HTMLElement, shadow);
+  // Next to Map: both are whole-screen views of the project rather than panels.
+  mountStorybook(shadow.querySelector('.bar') as HTMLElement, inboxButton);
+
+  mountComponentOverlay(shadow.querySelector('.bar') as HTMLElement, shadow, dock);
 
   pickButton.addEventListener('click', () => {
     closePanel();
     setPicking(!picking);
   });
   (shadow.getElementById('cancel') as HTMLButtonElement).addEventListener('click', closePanel);
-  for (const button of shadow.querySelectorAll<HTMLButtonElement>('[data-intent]')) {
-    button.addEventListener('click', () => void sendIntent(button.dataset['intent'] ?? 'fix'));
-  }
   document.addEventListener('mousemove', onMove, true);
   document.addEventListener('click', onClick, true);
   document.addEventListener('keydown', (e) => {

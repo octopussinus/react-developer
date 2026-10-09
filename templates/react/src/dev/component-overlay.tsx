@@ -12,6 +12,9 @@
  * is how you end up calling everything in `components/` "reused".
  */
 
+import type { Dock } from './dock';
+import { renderChoices } from './rows';
+
 interface ComponentRecord {
   name: string;
   scope: 'shared' | 'feature' | 'app';
@@ -28,28 +31,42 @@ interface ComponentMap {
 
 type Category = 'reused' | 'newShared' | 'newHere' | 'existingHere' | 'app';
 
-const CATEGORY: Record<Category, { label: string; color: string; hint: string }> = {
+/**
+ * Each entry is a colour on the page and a row in the legend, and neither says
+ * anything on its own -- "New, placed as shared" is jargon until someone
+ * explains why you would care. `explains` is what the (i) next to the row says.
+ */
+const CATEGORY: Record<Category, { label: string; color: string; explains: string }> = {
   reused: {
     label: 'Reused from the design system',
     color: '#10b981',
-    hint: 'a shared component that already existed before this branch',
+    explains:
+      'Green. A shared component that already existed before this branch, so the page is using the design system instead of rebuilding it. This is the colour you want to see most of.',
   },
   newShared: {
     label: 'New, placed as shared',
     color: '#a855f7',
-    hint: 'written on this branch but put in a shared layer -- check a second feature really needs it',
+    explains:
+      'Purple. Written on this branch, but placed where every other page can reach it. Right if a second feature genuinely needs it; otherwise it was shared before anyone asked, and its shape is now expensive to change.',
   },
   newHere: {
     label: 'Written for this feature',
     color: '#3b82f6',
-    hint: 'new on this branch, inside the page slice',
+    explains:
+      'Blue. New on this branch and kept inside this page, which is where new code belongs until a second page needs it. A lot of blue where you expected green means something that already exists was rebuilt.',
   },
   existingHere: {
     label: 'Existing feature code',
     color: '#0ea5e9',
-    hint: 'inside a feature, but it predates this branch',
+    explains:
+      'Light blue. Feature code older than this branch: what the change is building on, rather than what it added.',
   },
-  app: { label: 'App shell', color: '#6b7280', hint: 'layout and routing' },
+  app: {
+    label: 'App shell',
+    color: '#6b7280',
+    explains:
+      'Grey. The frame around the page -- layout, navigation, routing. Not part of the feature; shown so the rest has something to sit in.',
+  },
 };
 
 function categorise(record: ComponentRecord): Category {
@@ -65,7 +82,7 @@ function fileFromSource(raw: string): string | null {
   return match[1].replace(/^\/+/, '');
 }
 
-export function mountComponentOverlay(bar: HTMLElement, shadow: ShadowRoot): void {
+export function mountComponentOverlay(bar: HTMLElement, shadow: ShadowRoot, dock: Dock): void {
   let active = false;
   let map: ComponentMap | null = null;
   const hidden = new Set<Category>();
@@ -81,10 +98,25 @@ export function mountComponentOverlay(bar: HTMLElement, shadow: ShadowRoot): voi
   canvas.hidden = true;
   shadow.appendChild(canvas);
 
+  // Shaped like the feedback form on purpose: same width, same heading, same
+  // rows-with-an-(i). Two dev panels that explain themselves differently is two
+  // things to learn.
   const legend = document.createElement('div');
   legend.className = 'legend';
-  legend.hidden = true;
-  shadow.appendChild(legend);
+  const heading = document.createElement('h2');
+  heading.textContent = 'What is on this page';
+  const against = document.createElement('p');
+  against.className = 'where';
+  const rows = document.createElement('div');
+  rows.className = 'rows';
+  // Outside `rows`, so a redraw on scroll cannot wipe what you are reading.
+  const explain = document.createElement('p');
+  explain.className = 'explain';
+  explain.hidden = true;
+  const note = document.createElement('p');
+  note.className = 'note';
+  legend.append(heading, against, rows, explain, note);
+  dock.add(legend);
 
   function clear(): void {
     canvas.replaceChildren();
@@ -167,49 +199,44 @@ export function mountComponentOverlay(bar: HTMLElement, shadow: ShadowRoot): voi
     renderLegend(counts);
   }
 
+  /** Last rendered state, so scrolling does not rebuild rows 60 times a second. */
+  let rendered = '';
+
   function renderLegend(counts: Record<Category, number>): void {
-    legend.replaceChildren();
+    const signature = JSON.stringify([counts, [...hidden]]);
+    if (signature === rendered) return;
+    rendered = signature;
 
-    const title = document.createElement('h2');
-    title.textContent = 'What is on this page';
-    legend.appendChild(title);
+    against.textContent =
+      map?.base && map.branch
+        ? `New = added on ${map.branch} since ${map.base}. Click a row to hide it.`
+        : 'Click a row to hide that group.';
 
-    for (const key of Object.keys(CATEGORY) as Category[]) {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className = 'row';
-      row.dataset['off'] = String(hidden.has(key));
-      row.title = CATEGORY[key].hint;
+    renderChoices(
+      rows,
+      (Object.keys(CATEGORY) as Category[]).map((key) => ({
+        label: `${CATEGORY[key].label} (${String(counts[key])})`,
+        explains: CATEGORY[key].explains,
+        color: CATEGORY[key].color,
+        off: hidden.has(key),
+        onPick: () => {
+          if (hidden.has(key)) hidden.delete(key);
+          else hidden.add(key);
+          draw();
+        },
+      })),
+      explain,
+    );
 
-      const swatch = document.createElement('i');
-      swatch.style.background = CATEGORY[key].color;
-      row.appendChild(swatch);
-
-      const text = document.createElement('span');
-      text.textContent = `${CATEGORY[key].label} (${counts[key]})`;
-      row.appendChild(text);
-
-      row.addEventListener('click', () => {
-        if (hidden.has(key)) hidden.delete(key);
-        else hidden.add(key);
-        draw();
-      });
-      legend.appendChild(row);
-    }
-
-    const note = document.createElement('p');
     if (map && !map.determined) {
       note.textContent =
         'No git branch to compare against, so new and existing cannot be told apart. Only location is shown.';
     } else if (counts.newShared > 0) {
       note.textContent =
-        'Purple was written on this branch but placed in a shared layer. Fine if a second feature needs it — otherwise it was shared too early.';
-    } else if (map?.base) {
-      note.textContent = `New = added on ${map.branch} since ${map.base}. Click a row to hide it.`;
+        'There is purple on this page: new code placed in a shared layer. Press its (i) before leaving it there.';
     } else {
-      note.textContent = 'Click a row to hide that group. Uncommitted files count as new.';
+      note.textContent = 'Uncommitted files count as new.';
     }
-    legend.appendChild(note);
   }
 
   async function load(): Promise<void> {
@@ -225,7 +252,8 @@ export function mountComponentOverlay(bar: HTMLElement, shadow: ShadowRoot): voi
     active = !active;
     button.dataset['active'] = String(active);
     canvas.hidden = !active;
-    legend.hidden = !active;
+    if (active) dock.open(legend);
+    else dock.close(legend);
     if (!active) return clear();
     // Always refetch: the agent may have added a component since the last look,
     // and a stale map would show it as untraced rather than new.

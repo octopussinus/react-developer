@@ -6,9 +6,14 @@
  * not by asking a model what it thinks the links are. A map you cannot trust is
  * worse than no map, because you act on it.
  *
- * Rendered with React Flow in a plain overlay rather than the toolbar's shadow
- * root: React Flow ships a stylesheet, and a shadow root would need it injected
- * separately for no benefit here.
+ * It docks to half the screen rather than covering it, because the map is a
+ * thing you navigate WITH: the ↗ on a page opens that page in the other half
+ * and outlines, on the page itself, every link out of it. A full-page map
+ * would have hidden the app it is describing.
+ *
+ * Rendered with React Flow outside the toolbar's shadow root: React Flow ships
+ * a stylesheet, and a shadow root would need it injected separately for no
+ * benefit here.
  */
 
 import dagre from '@dagrejs/dagre';
@@ -26,6 +31,16 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import '@xyflow/react/dist/style.css';
+
+import {
+  clearMarks,
+  goToRoute,
+  litColors,
+  markNavigations,
+  type Marked,
+  type PageHop,
+} from './route-highlight';
+import { openSidePanel, type Frame } from './takeover';
 
 export interface GraphNode {
   path: string;
@@ -131,6 +146,8 @@ interface LabelData extends Record<string, unknown> {
   text: string;
   labelX: number;
   labelY: number;
+  /** Set while this arrow is one of the outlined links on the shown page. */
+  color?: string;
 }
 
 /**
@@ -175,8 +192,8 @@ function MapEdge({
               transform: `translate(-50%, -50%) translate(${String(label.labelX)}px, ${String(label.labelY)}px)`,
               padding: '1px 5px',
               borderRadius: 4,
-              background: '#ffffffee',
-              color: '#334155',
+              background: label.color === undefined ? '#ffffffee' : label.color,
+              color: label.color === undefined ? '#334155' : '#ffffff',
               font: '600 10px system-ui, sans-serif',
               pointerEvents: 'none',
               whiteSpace: 'nowrap',
@@ -217,10 +234,15 @@ function NodeLabel({
   node,
   targets,
   isOpen,
+  isShowing,
+  onOpen,
 }: {
   node: GraphNode;
   targets: number;
   isOpen: boolean;
+  /** This is the page currently open in the other half. */
+  isShowing: boolean;
+  onOpen: () => void;
 }) {
   return (
     <div
@@ -247,6 +269,36 @@ function NodeLabel({
         {node.path}
         {node.permission ? ' 🔒' : ''}
       </span>
+      {/*
+        `nodrag nopan` or React Flow's own drag handler swallows the click, and
+        stopPropagation so opening the page does not also toggle the branch --
+        two different things that both read as "clicking the box".
+      */}
+      <button
+        type="button"
+        className="nodrag nopan"
+        title={`Show ${node.path} in the other half and outline every link out of it`}
+        aria-label={`Show ${node.path}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen();
+        }}
+        style={{
+          flexShrink: 0,
+          width: 22,
+          height: 20,
+          padding: 0,
+          borderRadius: 6,
+          border: `1px solid ${isShowing ? '#1d4ed8' : '#bfdbfe'}`,
+          background: isShowing ? '#1d4ed8' : '#ffffff',
+          color: isShowing ? '#ffffff' : '#1d4ed8',
+          font: '700 11px system-ui, sans-serif',
+          cursor: 'pointer',
+          lineHeight: '18px',
+        }}
+      >
+        ↗
+      </button>
       {node.reachable ? null : (
         <span title="nothing links here" style={{ color: '#b45309', flexShrink: 0 }}>
           ⚠
@@ -313,8 +365,19 @@ function hopLabel(hop: Hop): string {
   return rest.length > 0 ? `${first ?? ''} +${String(rest.length)}` : (first ?? '');
 }
 
+/** The page being shown in the other half, and what was found on it. */
+interface Showing {
+  path: string;
+  /** What the browser actually opened: `/dogs/:dogId` cannot be visited. */
+  url: string;
+  marks: Marked[];
+}
+
 function Map_({ graph }: { graph: Graph }) {
   const [selected, setSelected] = useState<(GraphEdge | Unresolved)[] | null>(null);
+  const [showing, setShowing] = useState<Showing | null>(null);
+  /** Which press of ↗ is the current one. See `show`. */
+  const attempt = useRef(0);
 
   /**
    * Which pages have been opened.
@@ -386,6 +449,54 @@ function Map_({ graph }: { graph: Graph }) {
   }
 
   /**
+   * Show a page in the other half and outline its links.
+   *
+   * Twice, 500ms apart: the app has to render the new route before anything can
+   * be found, and a page that fetches renders its links after its skeleton. The
+   * second pass is what makes "4 of 6 on screen" true rather than optimistic --
+   * the outlines themselves follow the DOM on their own after that.
+   */
+  function show(path: string): void {
+    const url = goToRoute(path);
+    const hops: PageHop[] = (outgoing.get(path) ?? []).map((navigation) => ({
+      to: 'to' in navigation && navigation.to ? navigation.to : UNKNOWN,
+      label: navigation.label,
+      component: navigation.component,
+      file: navigation.file,
+      line: navigation.line,
+    }));
+
+    if (!open.has(path)) toggle(path);
+
+    /*
+     * Everything below belongs to THIS press of ↗.
+     *
+     * Two things arrive late and have to be ignored once you press ↗ again: the
+     * second timer, and the highlighter's recount. Telling them apart by the
+     * path they carry does not work -- "a late call about the old page" and "the
+     * first call about the new page" look identical from in here, and a guard
+     * that compared paths kept showing the previous page's report. A token does
+     * not have that problem.
+     */
+    attempt.current += 1;
+    const mine = attempt.current;
+    const update = (marks: readonly Marked[]): void => {
+      if (attempt.current !== mine) return;
+      setShowing({ path, url, marks: [...marks] });
+    };
+    const look = () => {
+      if (attempt.current !== mine) return;
+      update(markNavigations(hops, update));
+    };
+    // Once now, once after the page has had time to fetch and render.
+    window.setTimeout(look, 150);
+    window.setTimeout(look, 650);
+  }
+
+  // Closing the map must not leave outlines on the app.
+  useEffect(() => clearMarks, []);
+
+  /**
    * Re-fit whenever the visible set changes.
    *
    * Opening a page puts its targets to the RIGHT of it, which on a map already
@@ -413,13 +524,29 @@ function Map_({ graph }: { graph: Graph }) {
       targetPosition: Position.Left,
       // The caret and the badge are the affordance: without them a leaf and an
       // unopened page with six exits look identical, and you click to find out.
-      data: { label: <NodeLabel node={node} targets={targets} isOpen={isOpen} /> },
+      data: {
+        label: (
+          <NodeLabel
+            node={node}
+            targets={targets}
+            isOpen={isOpen}
+            isShowing={showing?.path === node.path}
+            onOpen={() => {
+              show(node.path);
+            }}
+          />
+        ),
+      },
       style: {
         ...nodeBase,
-        border: `2px solid ${node.reachable ? '#2563eb' : '#f59e0b'}`,
+        border: `2px solid ${
+          showing?.path === node.path ? '#1d4ed8' : node.reachable ? '#2563eb' : '#f59e0b'
+        }`,
         background: closed ? '#dbeafe' : node.reachable ? '#eff6ff' : '#fffbeb',
         color: '#111827',
         cursor: targets > 0 ? 'pointer' : 'default',
+        // The page you are looking at, found at a glance in a 26-box map.
+        boxShadow: showing?.path === node.path ? '0 0 0 4px #1d4ed836' : undefined,
       },
     };
   });
@@ -439,66 +566,95 @@ function Map_({ graph }: { graph: Graph }) {
         background: '#f9fafb',
         color: '#374151',
         cursor: 'default',
+        boxShadow: undefined,
       },
     });
   }
 
   const byId = new Map<string, (GraphEdge | Unresolved)[]>();
 
+  /**
+   * The arrow and the outline on the page are the same colour.
+   *
+   * Without that the two halves are two separate pictures and you match them up
+   * by reading path names. With it, "the pink one" is a complete sentence.
+   */
+  const litUp = litColors(showing?.marks ?? []);
+
   const edges = hops.map((hop) => {
     byId.set(hop.id, hop.navigations);
     const at = labelAt(hop.id);
     const unknown = hop.to === UNKNOWN;
     const redirect = hop.navigations.some((n) => n.kind === 'redirect');
+    const lit = hop.from === showing?.path ? litUp.get(hop.to) : undefined;
     return {
       id: hop.id,
       source: hop.from,
       target: hop.to,
       type: 'map',
-      data: { text: hopLabel(hop), labelX: at.x, labelY: at.y },
+      data: { text: hopLabel(hop), labelX: at.x, labelY: at.y, color: lit },
       style: {
         // Shown, not hidden: a page that navigates somewhere unknowable is a
         // fact about the app, and leaving it off makes the map look complete.
-        stroke: unknown ? '#9ca3af' : redirect ? '#7c3aed' : '#2563eb',
-        strokeWidth: 1.5,
+        stroke: lit ?? (unknown ? '#9ca3af' : redirect ? '#7c3aed' : '#2563eb'),
+        strokeWidth: lit === undefined ? 1.5 : 2.5,
         ...(unknown ? { strokeDasharray: '4 3' } : {}),
       },
     };
   });
 
+  /*
+   * Rows, not floating boxes.
+   *
+   * In a half-width dock a floating control strip covers the graph it is meant
+   * to help with, and React Flow's own Controls and MiniMap are already in two
+   * of the four corners. So the hint and the report are real rows and the graph
+   * gets everything between them.
+   */
   return (
-    <>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        edgeTypes={edgeTypes}
-        onInit={(instance) => {
-          fit.current = () => {
-            void instance.fitView({ padding: 0.14, duration: 260, maxZoom: 1 });
-          };
-        }}
-        fitView
-        fitViewOptions={{ padding: 0.14, maxZoom: 1 }}
-        minZoom={0.1}
-        nodesDraggable={false}
-        onNodeClick={(_, node) => {
-          if (node.id !== UNKNOWN) toggle(node.id);
-        }}
-        onEdgeClick={(_, edge) => setSelected(byId.get(edge.id) ?? null)}
-        onPaneClick={() => setSelected(null)}
-      >
-        <Background />
-        <Controls showInteractive={false} />
-        <MiniMap pannable zoomable />
-      </ReactFlow>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Hint
         shown={shownNodes.length}
         total={graph.nodes.length}
         onExpandAll={() => setOpen(new Set(graph.nodes.map((n) => n.path)))}
         onCollapse={() => setOpen(new Set(roots.slice(0, 1)))}
       />
-      {selected ? <Details navigations={selected} onClose={() => setSelected(null)} /> : null}
-    </>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          edgeTypes={edgeTypes}
+          onInit={(instance) => {
+            fit.current = () => {
+              void instance.fitView({ padding: 0.14, duration: 260, maxZoom: 1 });
+            };
+          }}
+          fitView
+          fitViewOptions={{ padding: 0.14, maxZoom: 1 }}
+          minZoom={0.1}
+          nodesDraggable={false}
+          onNodeClick={(_, node) => {
+            if (node.id !== UNKNOWN) toggle(node.id);
+          }}
+          onEdgeClick={(_, edge) => setSelected(byId.get(edge.id) ?? null)}
+          onPaneClick={() => setSelected(null)}
+        >
+          <Background />
+          <Controls showInteractive={false} />
+          <MiniMap pannable zoomable style={{ width: 118, height: 86 }} />
+        </ReactFlow>
+        {selected ? <Details navigations={selected} onClose={() => setSelected(null)} /> : null}
+      </div>
+      {showing ? (
+        <OnScreen
+          showing={showing}
+          onClear={() => {
+            clearMarks();
+            setShowing(null);
+          }}
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -514,52 +670,133 @@ function Hint({
   onCollapse: () => void;
 }) {
   const button = {
-    border: 0,
+    flex: 'none',
+    border: '1px solid #cbd5e1',
     borderRadius: 6,
-    padding: '4px 9px',
-    background: '#1f2937',
-    color: '#f9fafb',
+    padding: '3px 9px',
+    background: '#ffffff',
+    color: '#1f2937',
     font: 'inherit',
     cursor: 'pointer',
   } as const;
   return (
     <div
       style={{
-        position: 'absolute',
-        top: 48,
-        left: 12,
+        flex: 'none',
         display: 'flex',
         alignItems: 'center',
         gap: 8,
         padding: '6px 10px',
-        borderRadius: 8,
-        background: '#111827cc',
-        color: '#e5e7eb',
+        borderBottom: '1px solid #e2e8f0',
+        background: '#f8fafc',
+        color: '#334155',
         font: '400 11px system-ui, sans-serif',
-        zIndex: 20,
       }}
     >
-      <span>
-        Click a page to open it. The{' '}
-        <span
-          style={{
-            padding: '1px 6px',
-            borderRadius: 999,
-            background: '#2563eb',
-            color: '#fff',
-            font: '700 10px system-ui, sans-serif',
-          }}
-        >
-          6 →
-        </span>{' '}
-        badge is how many pages it leads to · showing {shown} of {total}
+      <span style={{ minWidth: 0 }}>
+        Click a box to unfold it, <strong style={{ color: '#1d4ed8' }}>↗</strong> to open that page
+        beside the map · {shown} of {total} shown
       </span>
-      <button type="button" style={button} onClick={onExpandAll}>
+      <button type="button" style={{ ...button, marginLeft: 'auto' }} onClick={onExpandAll}>
         Expand all
       </button>
       <button type="button" style={button} onClick={onCollapse}>
         Collapse
       </button>
+    </div>
+  );
+}
+
+/**
+ * What the outlines on the page add up to.
+ *
+ * The honest part is the count. Four outlines out of six links looks like four
+ * links until something says otherwise: the other two are a CTA in an empty
+ * state and an item in a closed menu, and they are not on the page right now.
+ * Saying "not on screen" turns a silent gap into a fact about the page.
+ */
+function OnScreen({ showing, onClear }: { showing: Showing; onClear: () => void }) {
+  const live = showing.marks.filter((mark) => mark.count > 0).length;
+  return (
+    <div
+      style={{
+        flex: 'none',
+        maxHeight: 190,
+        overflowY: 'auto',
+        padding: '8px 10px',
+        borderTop: '1px solid #e2e8f0',
+        background: '#f8fafc',
+        color: '#334155',
+        font: '400 11px system-ui, sans-serif',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <strong style={{ fontSize: 11 }}>
+          Outlined on {showing.url}
+          {showing.url === showing.path ? '' : ` (${showing.path})`}
+        </strong>
+        <span style={{ color: '#64748b' }}>
+          {live} of {showing.marks.length} on screen
+        </span>
+        <button
+          type="button"
+          onClick={onClear}
+          style={{
+            marginLeft: 'auto',
+            flex: 'none',
+            border: '1px solid #cbd5e1',
+            borderRadius: 6,
+            padding: '2px 8px',
+            background: '#ffffff',
+            color: '#1f2937',
+            font: 'inherit',
+            cursor: 'pointer',
+          }}
+        >
+          Clear
+        </button>
+      </div>
+      {showing.marks.map((mark, index) => (
+        <div
+          key={`${String(mark.hop.file)}:${String(mark.hop.line)}:${String(index)}`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            padding: '2px 0',
+            opacity: mark.count > 0 ? 1 : 0.55,
+          }}
+        >
+          <i
+            style={{
+              flex: 'none',
+              width: 9,
+              height: 9,
+              borderRadius: 3,
+              background: mark.color,
+              border: mark.count > 0 ? '0' : `1px dashed ${mark.color}`,
+              backgroundColor: mark.count > 0 ? mark.color : 'transparent',
+            }}
+          />
+          <span style={{ fontFamily: 'ui-monospace, Menlo, monospace' }}>→ {mark.hop.to}</span>
+          <span style={{ color: '#64748b', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            {mark.hop.component ?? mark.hop.label}
+          </span>
+          <span style={{ marginLeft: 'auto', flex: 'none', color: '#64748b' }}>
+            {mark.count === 0
+              ? 'not on screen'
+              : mark.count === 1
+                ? 'outlined'
+                : `×${String(mark.count)}`}
+          </span>
+        </div>
+      ))}
+      {live < showing.marks.length ? (
+        <p style={{ margin: '6px 0 0', color: '#64748b', lineHeight: 1.45 }}>
+          Greyed rows are links this page can draw but is not drawing now — inside a closed menu, an
+          empty state, or a branch this data does not reach.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -644,10 +881,11 @@ function Details({
     <aside
       style={{
         position: 'absolute',
-        top: 48,
+        top: 12,
         right: 12,
-        width: 330,
-        maxHeight: 'calc(100vh - 80px)',
+        width: 310,
+        maxWidth: 'calc(100% - 24px)',
+        maxHeight: 'calc(100% - 24px)',
         overflowY: 'auto',
         padding: 12,
         borderRadius: 10,
@@ -695,91 +933,40 @@ function Details({
 }
 
 let root: Root | null = null;
-let host: HTMLDivElement | null = null;
+let view: Frame | null = null;
 
 export async function openRouteMap(): Promise<void> {
-  if (host) return closeRouteMap();
+  if (view) return closeRouteMap();
 
   const graph = (await fetch('/__react-dev/route-graph').then((r) => r.json())) as Graph & {
     error?: string;
   };
 
-  host = document.createElement('div');
-  host.id = 'react-dev-route-map';
-  Object.assign(host.style, {
-    position: 'fixed',
-    inset: '0',
-    zIndex: '2147483646',
-    background: '#ffffff',
-  });
-  document.body.appendChild(host);
-
-  const bar = document.createElement('div');
-  Object.assign(bar.style, {
-    position: 'absolute',
-    top: '0',
-    left: '0',
-    right: '0',
-    zIndex: '10',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '8px 12px',
-    background: '#111827',
-    color: '#f9fafb',
-    font: '400 12px system-ui, sans-serif',
+  view = openSidePanel('react-dev-route-map', () => {
+    root?.unmount();
+    root = null;
+    view = null;
+    // Belt and braces: Map_'s own cleanup does this too, but a frame that closes
+    // without unmounting cleanly would otherwise leave outlines on the app.
+    clearMarks();
   });
 
   if (graph.error) {
-    bar.textContent = `Could not build the map: ${graph.error}`;
+    view.status.textContent = `Could not build the map: ${graph.error}`;
   } else {
     const orphans = graph.nodes.filter((n) => !n.reachable).length;
-    bar.textContent =
+    view.status.textContent =
       `${String(graph.nodes.length)} pages · ${String(graph.edges.length)} links` +
       (orphans > 0 ? ` · ${String(orphans)} orphaned` : '') +
       (graph.unresolved.length > 0
         ? ` · ${String(graph.unresolved.length)} decided at runtime` // shown as the dashed "?" node
         : '') +
       ' · click any arrow to see what triggers it';
-  }
-
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.textContent = 'Close (Esc)';
-  Object.assign(close.style, {
-    marginLeft: 'auto',
-    border: '0',
-    borderRadius: '6px',
-    padding: '4px 10px',
-    background: '#2563eb',
-    color: '#fff',
-    font: 'inherit',
-    cursor: 'pointer',
-  });
-  close.addEventListener('click', () => closeRouteMap());
-  bar.appendChild(close);
-  host.appendChild(bar);
-
-  const canvas = document.createElement('div');
-  Object.assign(canvas.style, { position: 'absolute', inset: '36px 0 0 0' });
-  host.appendChild(canvas);
-
-  if (!graph.error) {
-    root = createRoot(canvas);
+    root = createRoot(view.canvas);
     root.render(<Map_ graph={graph} />);
   }
-
-  document.addEventListener('keydown', onKey);
-}
-
-function onKey(event: KeyboardEvent): void {
-  if (event.key === 'Escape') closeRouteMap();
 }
 
 export function closeRouteMap(): void {
-  document.removeEventListener('keydown', onKey);
-  root?.unmount();
-  root = null;
-  host?.remove();
-  host = null;
+  view?.close();
 }

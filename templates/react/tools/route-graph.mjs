@@ -45,6 +45,17 @@ function normalise(path) {
   return clean.length > 1 ? clean.replace(/\/$/, '') : '/';
 }
 
+/**
+ * Could this target be a page of this app, as opposed to a file in `public/`?
+ *
+ * `<a href="/manual.pdf">` is a download, not a page nobody built, and
+ * reporting it as one is the false positive that makes the whole dead-end
+ * report ignorable.
+ */
+function isPageTarget(target) {
+  return typeof target === 'string' && target.startsWith('/') && !/\.[a-z0-9]{2,5}$/i.test(target);
+}
+
 function matchRoute(target, routePaths) {
   if (routePaths.includes(target)) return target;
   const segments = target.split('/');
@@ -351,6 +362,26 @@ function labelFor(node, kind) {
   return fn?.getName() ?? 'navigate';
 }
 
+/**
+ * The line to report: the ELEMENT's, not the attribute's.
+ *
+ * `to={…}` is routinely a line below `<ActionLink`, and the element's line is the
+ * one that matters twice over -- it is what you open in an editor, and it is what
+ * `@tanstack/devtools-vite` stamps onto the rendered DOM node. Reporting the
+ * attribute's line left the map one line off from the page itself, so outlining
+ * a link on screen from a line in the map found nothing.
+ *
+ * Same for `onClick={() => navigate('/x')}`: the button is the thing on screen.
+ */
+function lineFor(node) {
+  const owner = node.getFirstAncestor(
+    (a) => Node.isJsxElement(a) || Node.isJsxSelfClosingElement(a),
+  );
+  if (!owner) return node.getStartLineNumber();
+  const opening = Node.isJsxElement(owner) ? owner.getOpeningElement() : owner;
+  return opening.getStartLineNumber();
+}
+
 function collectNavigations(sourceFile, routePaths, root) {
   const found = [];
   const file = relative(root, sourceFile.getFilePath()).split('\\').join('/');
@@ -365,7 +396,7 @@ function collectNavigations(sourceFile, routePaths, root) {
    */
   const record = (node, kind, source, strict = true) => {
     const { paths, dynamic, samePage, fromProp } = destinationsOf(source);
-    const line = node.getStartLineNumber();
+    const line = lineFor(node);
     const label = labelFor(node, kind);
     const component = componentFor(node);
 
@@ -508,6 +539,7 @@ export function buildRouteGraph(root) {
         titleKey: titleKey ?? null,
         permission,
         inSidebar,
+        missing: false,
       });
     }
   }
@@ -529,13 +561,35 @@ export function buildRouteGraph(root) {
           unresolved.push({ from: node.path, ...nav });
           continue;
         }
-        if (!nav.to || nav.to === node.path) continue;
+        // A target matching no route is a DEAD END: the button is on the page,
+        // the page it promises is not. `if (!nav.to) continue` dropped the edge,
+        // so a map of 26 pages reported 26 and hid the three buttons that go
+        // nowhere -- the one thing clicking around cannot show you, because
+        // clicking lands you on a blank screen with no clue which link did it.
+        const to = nav.to ?? (isPageTarget(nav.raw) ? nav.raw : null);
+        if (!to || to === node.path) continue;
         // One edge per (from, to, label): the same link in a loop is one arrow.
-        const key = `${node.path}->${nav.to}:${nav.label}`;
+        const key = `${node.path}->${to}:${nav.label}`;
         if (edges.some((e) => e.key === key)) continue;
-        edges.push({ key, from: node.path, to: nav.to, ...nav });
+        edges.push({ key, ...nav, from: node.path, to, missing: nav.to === null });
       }
     }
+  }
+
+  // A node for every dead end, so the map DRAWS the page that is missing rather
+  // than ending the arrow in mid-air. Same statement the report makes in words,
+  // in the place you are already looking -- and it is what makes "this button
+  // leads nowhere" and "this page is not built yet" the one fact they are.
+  for (const edge of edges) {
+    if (!edge.missing || nodes.some((n) => n.path === edge.to)) continue;
+    nodes.push({
+      path: edge.to,
+      module: null,
+      titleKey: null,
+      permission: false,
+      inSidebar: false,
+      missing: true,
+    });
   }
 
   // Roots: the index, plus sidebar entries -- but NOT a parameterised path. A

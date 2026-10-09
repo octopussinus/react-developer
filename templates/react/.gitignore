@@ -13,3 +13,10 @@ reports
 
 # Originals saved by `react-dev sync --force-template`.
 .react-dev-backup/
+
+# Parallel worker checkouts and their session logs. Anchored, because an
+# unanchored rule would also hide a `.worktrees` somewhere under src/ -- and an
+# un-ignored worktree puts a second copy of the project in `git status`, which
+# the first worker to run `git add` commits into its own branch.
+/.worktrees/
+/.ai/runs/

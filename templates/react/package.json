@@ -24,7 +24,7 @@
     "i18n:check": "node scripts/i18n-check.mjs",
     "e2e": "playwright test --grep-invert \"@a11y|@visual\"",
     "a11y": "playwright test --grep @a11y",
-    "storybook": "storybook dev -p 6006",
+    "storybook": "node scripts/storybook.mjs",
     "build-storybook": "storybook build",
     "api:generate": "openapi-ts",
     "verify": "npm run format:check && npm run lint && npm run lint:rules && npm run typecheck && npm run test && npm run deadcode && npm run duplicates && npm run i18n:check && npm run components:check && npm run build",

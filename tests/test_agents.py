@@ -224,3 +224,44 @@ def test_react_prototype_is_gone(project: Path):
         if f.name == "design-input.md":
             continue  # explains what replaced it
         assert "react-prototype" not in body, f"{f} still references it"
+
+
+def test_a_retired_subagent_is_removed_and_backed_up(tmp_path):
+    """A subagent file is wiring: the agent auto-delegates to whatever it names.
+
+    Left behind after the template retires it, the agent keeps delegating to a
+    worker whose instructions contradict the skill that replaced it -- and
+    nothing says so. Found live: `sync` updated every skill in a real project
+    and left `react-feature-worker` offering a mechanism that no longer exists.
+    """
+    from react_dev.agents import prune_stale_wiring
+
+    shared = tmp_path / "template" / "shared" / ".claude" / "agents"
+    shared.mkdir(parents=True)
+    (shared / "react-verify.md").write_text("still shipped\n", encoding="utf-8")
+
+    project = tmp_path / "project"
+    agents_dir = project / ".claude" / "agents"
+    agents_dir.mkdir(parents=True)
+    (agents_dir / "react-verify.md").write_text("still shipped\n", encoding="utf-8")
+    # Stale: sync installed it, the template dropped it, and this project never
+    # took the last update -- so its content does NOT match what was stamped.
+    (agents_dir / "react-feature-worker.md").write_text("an older copy\n", encoding="utf-8")
+    # The user's own. Not in fileHashes, so not ours to delete.
+    (agents_dir / "my-own-helper.md").write_text("mine\n", encoding="utf-8")
+
+    recorded = {
+        ".claude/agents/react-verify.md": "aaaaaaaaaaaa",
+        ".claude/agents/react-feature-worker.md": "bbbbbbbbbbbb",
+    }
+    backup = tmp_path / "backup"
+
+    gone = prune_stale_wiring(project, tmp_path / "template" / "shared", recorded, backup)
+
+    assert gone == [".claude/agents/react-feature-worker.md"]
+    assert not (agents_dir / "react-feature-worker.md").exists()
+    assert (agents_dir / "react-verify.md").exists(), "still shipped; must stay"
+    assert (agents_dir / "my-own-helper.md").exists(), "the user's own file was deleted"
+    # Reversible, which is what makes deleting a drifted copy defensible.
+    saved = backup / ".claude" / "agents" / "react-feature-worker.md"
+    assert saved.read_text() == "an older copy\n"

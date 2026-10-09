@@ -6,8 +6,9 @@ constitution is `templates/react/AGENTS.md`.
 ## Layout
 
 ```
-src/react_dev/        the CLI (typer): init · check · doctor · sync
-  agents.py           the 3 agent adapters — the only place agent specifics live
+src/react_dev/        the CLI (typer): init · check · doctor · sync · dispatch
+  agents.py           the 3 agent adapters: wiring, and how to launch each one
+  runner.py           headless workers: spawn, stream, log, verdict
   project.py          .react-dev.json + the doctor invariants
 skills/<name>/        CANONICAL skills: the single source of truth for all agents
 templates/react/      the project template (must pass its own npm run verify)
@@ -71,7 +72,24 @@ cd /tmp && rm -rf t && mkdir t && cd t \
 
 ## Adding an agent
 
-One entry in `AGENTS` in `src/react_dev/agents.py`. Check its docs first for:
-where it reads skills (`.agents/skills` natively?), its context filename, and
-whether skills are explicitly invocable or need a command shim. Then add a case
-to `tests/test_agents.py`.
+**`agents.py` and `runner.py` are the only two files that may name a vendor's
+CLI, flags or event types.** `agents.py` says how an agent is wired and
+launched; `runner.py` says how its event stream is read. Everywhere else —
+`dispatch`, `next`, the skills — goes through `invoke_prefix`, `cli_bin` and
+`headless`, which is what makes the pipeline the same whichever agent you pick.
+A test enforces it.
+
+Three things, then:
+
+1. One entry in `AGENTS` in `src/react_dev/agents.py`. Check its docs for: where
+   it reads skills (`.agents/skills` natively?), its context filename, and
+   whether skills are explicitly invocable or need a command shim.
+2. A `Headless(...)` on that entry if it can run unattended — the subcommand and
+   flags for non-interactive mode, **including the one that pre-grants
+   approval**. A worker that stops to ask has nobody to ask and hangs until the
+   deadline kills it.
+3. A parser in `PARSERS` in `runner.py`, plus its set of known event types.
+   Anything outside that set is logged verbatim rather than dropped, so a vendor
+   adding an event degrades the transcript instead of silently losing it.
+
+Then add a case to `tests/test_agents.py` and `tests/test_runner.py`.

@@ -46,6 +46,33 @@ CANONICAL_CONTEXT_FILE = "AGENTS.md"
 
 
 @dataclass(frozen=True)
+class Headless:
+    """How to run this agent unattended, and whose event stream comes back.
+
+    Verified against each CLI's own ``--help`` on 2026-10-07 (claude 2.1.292,
+    gemini 0.42.0) and against the Codex non-interactive reference at
+    https://learn.chatgpt.com/docs/non-interactive-mode.
+
+    `approval` is not a convenience: a worker that stops to ask permission has
+    no one to ask. It sits at 0% forever in a log nobody is watching, which is
+    the documented way parallel agent runs fail.
+    """
+
+    #: Flags before the prompt. The subcommand, if any, is the first entry.
+    base: tuple[str, ...]
+    #: Flag that carries the prompt, or "" when the prompt is a trailing word.
+    prompt_flag: str
+    #: Which parser in `runner.py` understands this CLI's stdout.
+    stream: str
+    model_flag: str | None = None
+    default_model: str | None = None
+    effort_flag: str | None = None
+    default_effort: str | None = None
+    #: Where the flags above are documented, for the skill and for `--help`.
+    docs: str = ""
+
+
+@dataclass(frozen=True)
 class Agent:
     key: str
     name: str
@@ -62,6 +89,8 @@ class Agent:
     invoke_prefix: str = "/"
     #: True when the emitted command name drops the shared `react-` prefix.
     strips_prefix: bool = False
+    #: How to run it as an unattended worker, or None when it cannot be.
+    headless: Headless | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -82,6 +111,23 @@ AGENTS: dict[str, Agent] = {
         cli_bin="claude",
         docs_url="https://code.claude.com/docs/en/skills",
         invoke_prefix="/",
+        headless=Headless(
+            # --verbose is required alongside stream-json with --print, and
+            # bypassPermissions because nobody is there to answer a prompt.
+            base=(
+                "-p",
+                "--output-format", "stream-json",
+                "--verbose",
+                "--permission-mode", "bypassPermissions",
+            ),
+            prompt_flag="",
+            stream="claude",
+            model_flag="--model",
+            default_model="sonnet",
+            effort_flag="--effort",
+            default_effort="xhigh",
+            docs="https://code.claude.com/docs/en/sdk/headless",
+        ),
         notes=(
             "Skills appear as /<name> in the slash-command menu.",
             ".claude/skills entries link to .agents/skills -- edit the canonical copy.",
@@ -95,6 +141,18 @@ AGENTS: dict[str, Agent] = {
         cli_bin="codex",
         docs_url="https://learn.chatgpt.com/codex/build-skills",
         invoke_prefix="$",
+        headless=Headless(
+            # workspace-write, not danger-full-access: the worker has to edit
+            # its worktree and nothing beyond it.
+            base=("exec", "--json", "--sandbox", "workspace-write"),
+            prompt_flag="",
+            stream="codex",
+            model_flag="--model",
+            # No default: naming a model here would go stale, and the CLI's own
+            # default is the one the user configured.
+            default_model=None,
+            docs="https://learn.chatgpt.com/docs/non-interactive-mode",
+        ),
         notes=(
             "Reads .agents/skills and AGENTS.md natively -- nothing is generated.",
             "Trigger a workflow explicitly with $<name>, e.g. $react-verify.",
@@ -111,6 +169,14 @@ AGENTS: dict[str, Agent] = {
         docs_url="https://geminicli.com/docs/cli/creating-skills/",
         invoke_prefix="/react:",
         strips_prefix=True,
+        headless=Headless(
+            base=("--output-format", "stream-json", "--approval-mode", "yolo"),
+            prompt_flag="--prompt",
+            stream="gemini",
+            model_flag="--model",
+            default_model=None,
+            docs="https://geminicli.com/docs/cli/headless/",
+        ),
         notes=(
             "Reads .agents/skills natively, but only invokes skills implicitly.",
             "Generated .gemini/commands/react/*.toml give you explicit /react:<name>.",
@@ -249,6 +315,53 @@ def emit_for_agent(project: Path, agent: Agent, skill_names: list[str]) -> list[
         actions.append(f"{agent.commands_dir}/*.toml ({len(skill_names)} shims)")
 
     return actions
+
+
+#: Directories of derived agent wiring that `sync` owns and may prune.
+WIRING_DIRS = (".claude/agents",)
+
+
+def prune_stale_wiring(
+    project: Path, shared_root: Path, recorded: dict[str, str],
+    backup_dir: Path | None = None,
+) -> list[str]:
+    """Remove agent definitions sync installed that the template no longer ships.
+
+    A subagent file is wiring, not project code: the agent reads it and
+    auto-delegates to whatever it describes. When one is retired upstream,
+    every existing project keeps offering it -- so the agent delegates to a
+    worker whose instructions now contradict the skill that replaced it, and
+    nothing says so. `sync` already prunes dead skill links for the same
+    reason; this is the same rule one directory over.
+
+    Two conditions: the template no longer has it, AND this project's manifest
+    says sync is the one that installed it. A file the user wrote themselves is
+    not in `fileHashes` and is never touched.
+
+    Content is deliberately NOT part of the test. A project that skipped a
+    template update has a stale copy through no fault of its own, and refusing
+    to retire it there is the case that matters most. The original is copied to
+    `backup_dir` first, which is what makes that safe -- same bargain as
+    `--force-template`.
+    """
+    gone: list[str] = []
+    for rel_dir in WIRING_DIRS:
+        directory = project / rel_dir
+        if not directory.is_dir():
+            continue
+        for entry in sorted(directory.glob("*.md")):
+            rel = f"{rel_dir}/{entry.name}"
+            if (shared_root / rel).exists():
+                continue
+            if rel not in recorded:
+                continue
+            if backup_dir is not None:
+                saved = backup_dir / rel
+                saved.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(entry, saved)
+            entry.unlink()
+            gone.append(rel)
+    return gone
 
 
 def read_skill_frontmatter(skill_md: Path) -> dict[str, str]:

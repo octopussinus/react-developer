@@ -382,7 +382,8 @@ react-dev next
 ```
 
 Komenda sprawdza, gdzie jest Twój projekt, i otwiera **zupełnie nową sesję
-asystenta**, od razu nakierowaną na następny krok. Nowa sesja z definicji nie
+asystenta**, od razu nakierowaną na następny krok — tego asystenta, którego masz
+zainstalowanego, i w składni, której on oczekuje. Nowa sesja z definicji nie
 pamięta poprzedniej, więc czysta karta dzieje się sama, a nie wtedy, gdy sobie o
 niej przypomnisz.
 
@@ -443,7 +444,9 @@ więc nigdy nie musisz tłumaczyć, gdzie coś jest.
 ### Nic, co wyślesz, nie znika
 
 Przycisk **List**, obok Feedback, pokazuje wszystko, co wysłałeś, i na jakim jest
-etapie:
+etapie. Otwiera się **obok** tego, co już jest otwarte, a nie na wierzchu — więc
+możesz czytać listę, kiedy panel feedbacku wciąż jest na ekranie. Tak samo
+zachowują się wszystkie pozostałe panele w tym rogu:
 
 | Etykieta        | Co znaczy                                                |
 | --------------- | -------------------------------------------------------- |
@@ -475,20 +478,23 @@ Każde zgłoszenie, na dowolnym etapie, ma też dwa własne przyciski:
 Obok **Feedback** jest przycisk **Dev**. Kliknij go, a każdy element strony
 dostanie kolorową ramkę:
 
-| Kolor         | Co znaczy                                                                                 |
-| ------------- | ----------------------------------------------------------------------------------------- |
-| **Zielony**   | Użyte ponownie — to już istniało, asystent nie budował tego od nowa                       |
-| **Fioletowy** | Nowe, ale wrzucone do wspólnej puli — słuszne tylko wtedy, gdy użyje tego też inna strona |
-| **Niebieski** | Napisane specjalnie dla funkcji, nad którą pracujesz                                      |
-| **Szary**     | Rama wokół strony: menu, układ                                                            |
+| Kolor              | Co znaczy                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------- |
+| **Zielony**        | Użyte ponownie — to już istniało, asystent nie budował tego od nowa                       |
+| **Fioletowy**      | Nowe, ale wrzucone do wspólnej puli — słuszne tylko wtedy, gdy użyje tego też inna strona |
+| **Niebieski**      | Napisane specjalnie dla funkcji, nad którą pracujesz                                      |
+| **Jasnoniebieski** | Kod funkcji starszy niż to, nad czym teraz pracujesz                                      |
+| **Szary**          | Rama wokół strony: menu, układ                                                            |
 
 To najszybszy sposób, żeby odpowiedzieć na pytanie „czy asystent użył moich
 rzeczy, czy po cichu zbudował drugą wersję tego samego?”. Dużo niebieskiego tam,
 gdzie spodziewałeś się zielonego, zwykle znaczy, że coś zostało zbudowane od
 nowa, choć już istniało.
 
-Panel w rogu liczy każdą grupę; kliknij wiersz, żeby ją ukryć. Wciśnij **Esc**
-albo kliknij **Dev** ponownie, żeby wyłączyć.
+Panel w rogu wygląda i działa jak panel feedbacku: liczy każdą grupę, a każdy
+wiersz ma **(i)**, które wyjaśnia, co ten kolor znaczy i co z tym zrobić — więc
+nie musisz się domyślać, o czym mówi „New, placed as shared". Kliknij wiersz, żeby
+ukryć grupę. Wciśnij **Esc** albo kliknij **Dev** ponownie, żeby wyłączyć.
 
 **O przycisku „I want this elsewhere too":** asystent dopyta, _która jeszcze
 strona_ tego potrzebuje. I to celowo. Uwspólnianie czegoś, zanim dwie strony
@@ -501,6 +507,10 @@ naprawdę tego używają, zwykle tworzy komponent, który nie pasuje do żadnej 
 
 Przycisk **Map**, obok Feedback, rysuje wszystkie strony Twojej witryny i
 wszystkie przyciski oraz odnośniki, które między nimi przenoszą.
+
+Otwiera się na **połowie ekranu, obok Twojej strony**, a nie na niej — strona dalej
+tam jest i dalej działa, tylko jest węższa. **Przeciągnij lewą krawędź mapy**, żeby
+dać więcej miejsca jednej albo drugiej stronie; szerokość zostaje zapamiętana.
 
 Nie wysypuje tego wszystkiego naraz. Zaczyna od strony głównej, a każda strona,
 która gdzieś prowadzi, ma małe `▸` i liczbę — `▸ +6` znaczy sześć wyjść.
@@ -524,6 +534,27 @@ komponencie się znajduje oraz **plik i numer linii** — z przyciskiem do
 skopiowania. Mapa nie mówi więc tylko „te dwie strony są połączone", ale też gdzie
 pójść i to zmienić.
 
+### Pokaż mi to na stronie
+
+Każde pudełko ma małe **↗**. Naciśnij je i dzieją się dwie rzeczy naraz: Twoja
+strona przechodzi na tę podstronę w drugiej połowie ekranu, a **każde wyjście z
+tej podstrony dostaje kolorową obwódkę na samej stronie**, z podpisem, gdzie
+prowadzi.
+
+Odnośniki do tego samego miejsca mają ten sam kolor, a strzałka na mapie jest
+narysowana tym samym kolorem — więc „te różowe prowadzą do profilu psa" widzisz
+w obu połowach jednocześnie. Jeśli pierwszy obwiedziony odnośnik jest poniżej
+ekranu, strona sama do niego przewinie.
+
+Pod mapą jest licznik: **„4 of 6 on screen"**. Pozostałe dwa są wyszarzone i to
+jest ta użyteczna część — odnośnik może istnieć w kodzie i nie być teraz
+narysowany, bo siedzi w zamkniętym menu, w stanie pustym albo w gałęzi, do której
+te dane nie dochodzą. Cztery obwódki bez licznika czytałoby się po prostu jako
+„są cztery".
+
+Podstrony z `:` w nazwie (`/dogs/:dogId`) nie da się odwiedzić dosłownie, więc
+otwierają się z `1` w miejscu parametru (`/dogs/1`) — i jest to napisane.
+
 Część przycisków decyduje, dokąd przejść, dopiero w trakcie działania aplikacji —
 i żadne czytanie kodu tego z góry nie powie. Takie przypadki są rysowane jako
 przerywana strzałka do pudełka **„? decided at runtime"**, a nie ukrywane — po
@@ -532,6 +563,29 @@ tam się dzieje.
 
 Warto zajrzeć po zbudowaniu kilku stron: to najszybszy sposób, żeby wyłapać
 stronę, którą zrobiłeś, ale zapomniałeś skądkolwiek do niej podlinkować.
+
+---
+
+## Podgląd klocków, z których to jest zbudowane
+
+Przycisk **Storybook**, obok Map, otwiera bibliotekę komponentów Twojego
+projektu — każdy przycisk, znacznik, kartę i pole formularza osobno, poza
+jakąkolwiek stroną, razem z pokrętłami do przełączania wariantów.
+
+To miejsce, w którym odpowiadasz sobie na pytanie „co ja już mam?", zanim
+poprosisz o coś nowego, i w którym widzisz komponent we wszystkich stanach naraz:
+znacznik w czterech odmianach, przycisk wyłączony, pole z błędem.
+
+Potrzebuje jednej rzeczy uruchomionej. W drugim terminalu, w swoim projekcie:
+
+```
+npm run storybook
+```
+
+Jeśli nie jest uruchomiony, przycisk to napisze i pokaże dokładnie tę komendę.
+Adres jest **własny dla tego projektu** — dwa projekty otwarte w tym samym czasie
+nie mogą pokazać Ci komponentów tego drugiego, a to pomyłka, której byś nie
+zauważył.
 
 ## Użycie tego samego komponentu w innym projekcie
 
@@ -686,6 +740,61 @@ Warto uruchamiać mniej więcej raz w tygodniu i po każdym przeglądzie. To jed
 część systemu, dzięki której asystent robi się lepszy **w Twoim** projekcie,
 zamiast stać w miejscu.
 
+## Budowanie kilku funkcji naraz
+
+Normalna pętla to jedna funkcja na raz i przy pierwszych kilku to jest właściwa
+droga. Kiedy plan jest już ustalony, asystent potrafi też zbudować kilka naraz —
+każdą w **osobnej kopii Twojego projektu**, przez osobnego asystenta, w tym samym
+czasie.
+
+Co wpisujesz:
+
+```
+react-dev parallel
+```
+
+To wypisze, które funkcje można bezpiecznie budować razem **i dlaczego pozostałe
+nie**. Dwie funkcje dotykające tej samej części aplikacji nigdy nie trafią do
+jednej paczki: obie kopie edytowałyby ten sam plik, a obie zmiany zostałyby
+połączone w coś, co nie działa.
+
+Następnie:
+
+```
+react-dev dispatch
+```
+
+Każda dostaje własnego asystenta, który pracuje sam, bez okna, w które mógłbyś
+patrzeć. Zamiast tego widzisz tabelę na żywo:
+
+```
+  #    Feature        Status     Time   Doing
+  011  medications    ok          14m   ok
+  017  matches        blocked      3m   stopped on a [NEEDS CLARIFICATION]
+  024  product        running     11m   Bash npm run verify
+```
+
+- **ok** — skończone, wszystkie sprawdzenia na zielono
+- **blocked** — trafił na pytanie, na które nie wolno mu odpowiedzieć samemu, i
+  się zatrzymał. To jest poprawne zachowanie, nie błąd
+- **failed** — coś się wywaliło; powód jest wypisany
+
+**Nic nie ginie.** Każdy z tych asystentów zapisuje całą swoją sesję do
+`.ai/runs/` i możesz ją potem przeczytać: każde polecenie, które wykonał, każdy
+plik, którego dotknął, co powiedział na koniec i ile to trwało. Otwórz
+`transcript.md` w folderze, który wskaże. `react-dev runs` pokazuje listę
+wszystkich dotychczasowych paczek, a `react-dev runs --id <nazwa>` otwiera
+jedną z nich.
+
+Działa tak samo z Claude Code, Codex i Gemini CLI — `--agent codex` oraz
+`--agent gemini` wybierają konkretnego. Proces się nie zmienia; zmienia się
+tylko to, kto go wykonuje.
+
+**Nic nie publikują.** Każdy kończy na „zrobione i sprawdzone". Scalasz je potem
+pojedynczo, a asystent Cię przez to przeprowadzi — bo dwie skończone funkcje to
+nie to samo co dwie funkcje, które działają razem, a jedyny sposób, żeby się
+przekonać, to sprawdzić je połączone.
+
 ## Kiedy coś pójdzie nie tak
 
 | Co widzisz                                        | Co zrobić                                                                                                                                        |
@@ -709,8 +818,9 @@ zamiast stać w miejscu.
    trzyma wszystko w formie, którą narzędzia rozumieją.
 3. **Nie odpowiadaj „rób jak chcesz" na wszystko** w krokach 3 i 6. Dwie–trzy
    prawdziwe decyzje tam oszczędzają całe dni.
-4. **Nie rób dwóch funkcji równocześnie.** Dokończ jedną do kroku 11, potem
-   zacznij następną. Cały system jest zbudowany pod jedną na raz.
+4. **Nie rób dwóch funkcji równocześnie ręcznie.** Dokończ jedną do kroku 11,
+   potem zacznij następną. Jeśli naprawdę chcesz kilka naraz, użyj `react-dev
+dispatch` — on rozdziela je jak należy.
 
 ---
 

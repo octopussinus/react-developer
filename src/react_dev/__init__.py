@@ -25,7 +25,14 @@ from rich.panel import Panel
 from rich.table import Table
 from typer.core import TyperGroup
 
-from .agents import AGENTS, CANONICAL_SKILLS_DIR, DEFAULT_AGENTS, emit_for_agent, read_skill_frontmatter
+from .agents import (
+    AGENTS,
+    CANONICAL_SKILLS_DIR,
+    DEFAULT_AGENTS,
+    emit_for_agent,
+    prune_stale_wiring,
+    read_skill_frontmatter,
+)
 from .project import (
     MANIFEST,
     STAGES,
@@ -38,8 +45,23 @@ from .project import (
     pipeline_status,
     prerequisite_status,
     read_manifest,
+    restamp,
     template_fingerprint,
     write_manifest,
+)
+from .runner import (
+    OK,
+    RUNNING,
+    Worker,
+    available_agents,
+    branch_for,
+    ensure_ignored,
+    headless_command,
+    new_run_dir,
+    past_runs,
+    run_batch,
+    worker_prompt,
+    worktree_for,
 )
 from .ui import StepTracker, console, select_with_arrows, show_banner
 
@@ -465,10 +487,22 @@ def check():
     table.add_row("", "", "")
     for key, a in AGENTS.items():
         ok = _tool_exists(a.cli_bin) if a.cli_bin else True
+        # Whether it can be a parallel worker is a different question from
+        # whether it is installed, and `dispatch` needs both answers.
+        note = a.docs_url
+        if ok and a.headless is not None:
+            note = f"can run unattended — {a.headless.docs}"
         table.add_row(a.name, "[green]found[/green]" if ok else "[yellow]not found[/yellow]",
-                      a.docs_url)
+                      note)
 
     console.print(Panel(table, title="Environment", border_style="cyan", padding=(1, 2)))
+    workers = available_agents()
+    if workers:
+        console.print(
+            "[bright_black]`react-dev dispatch` can run parallel workers with: "
+            + ", ".join(a.name for a in workers)
+            + ".[/bright_black]"
+        )
     console.print("[bright_black]An agent CLI that is missing only means you cannot run it "
                   "here — the generated files still work.[/bright_black]")
 
@@ -571,6 +605,18 @@ def sync(
     for key in selected:
         emit_for_agent(path, AGENTS[key], skills)
 
+    # A retired subagent keeps being offered forever otherwise, and the agent
+    # delegates to instructions that contradict the skill that replaced it.
+    retired = prune_stale_wiring(
+        path, template_source / "shared", manifest.get("fileHashes") or {},
+        backup_dir=path / ".react-dev-backup" / _BACKUP_STAMP,
+    )
+    for rel in retired:
+        console.print(
+            f"[yellow]-[/yellow] {rel} [bright_black]retired upstream; original in "
+            f".react-dev-backup/{_BACKUP_STAMP}/[/bright_black]"
+        )
+
     project_type = manifest.get("projectType", "react")
     template_root = template_source / project_type
     added, differing, outdated, customised = ([], [], [], [])
@@ -619,11 +665,20 @@ def sync(
         else manifest.get("templateFingerprint")
     )
 
+    # Per file, not all-or-nothing: what this run actually brought up to date is
+    # recorded even while other files still need a human. Stamped together, the
+    # next run read every file this one had just written as the user's own and
+    # refused to touch it again, so `--with-template` only ever worked once.
+    hashes = (
+        restamp(path, dict(manifest.get("fileHashes") or {}),
+                file_hashes(template_root, template_source / "shared"))
+        if with_template else manifest.get("fileHashes")
+    )
+
     write_manifest(path, cli_version=__version__, project_type=project_type,
                    agents=selected, skills=skills, fingerprint=fingerprint,
                    user_removed=list(manifest.get("userRemoved", ())),
-                   hashes=(file_hashes(template_root, template_source / "shared")
-                           if resolved else manifest.get("fileHashes")))
+                   hashes=hashes)
 
     if with_template:
         if added:
@@ -798,9 +853,237 @@ def parallel(
     )
 
 
+STATUS_STYLE = {
+    "ok": "green",
+    "blocked": "yellow",
+    "failed": "red",
+    "timeout": "red",
+    "running": "cyan",
+    "pending": "bright_black",
+}
+
+
+def _worker_table(workers: list[Worker], title: str) -> Panel:
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    table.add_column("#", width=3, justify="right")
+    table.add_column("Feature", no_wrap=True, width=22)
+    table.add_column("Status", no_wrap=True, width=9)
+    table.add_column("Time", justify="right", width=7)
+    table.add_column("Doing", style="bright_black", overflow="ellipsis")
+    for worker in workers:
+        style = STATUS_STYLE.get(worker.status, "")
+        detail = worker.activity if worker.status == RUNNING else (worker.reason or worker.status)
+        table.add_row(
+            str(worker.number),
+            worker.slug,
+            f"[{style}]{worker.status}[/{style}]",
+            f"{worker.elapsed:.0f}s",
+            detail,
+        )
+    return Panel(table, title=title, border_style="cyan", padding=(1, 2))
+
+
+@app.command()
+def dispatch(
+    path: Path = typer.Argument(Path.cwd(), help="Project to build in."),
+    agent_key: str = typer.Option(
+        "", "--agent", help="claude | codex | gemini. Default: the first one installed."
+    ),
+    limit: int = typer.Option(3, "--limit", help="Most workers to run at once."),
+    only: list[str] = typer.Option(
+        [], "--feature", help="Build these roadmap numbers instead of the planned batch."
+    ),
+    model: str = typer.Option("", "--model", help="Override the agent's model."),
+    effort: str = typer.Option("", "--effort", help="Override the agent's effort level."),
+    timeout: int = typer.Option(3600, "--timeout", help="Seconds before a worker is killed."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the plan and the exact commands."),
+):
+    """Build several roadmap features at once, one headless agent each.
+
+    Every worker is a real process -- `claude -p`, `codex exec` or
+    `gemini --prompt` -- in its own git worktree, with its whole session written
+    to `.ai/runs/`. Nothing about the pipeline above this command is specific to
+    one vendor: the flags and the event stream are the only difference, and they
+    live in `agents.py`.
+    """
+    installed = available_agents()
+    if not installed:
+        console.print(
+            "[red]No agent CLI found.[/red] Install one of: claude, codex, gemini."
+        )
+        raise typer.Exit(1)
+
+    if agent_key:
+        agent = AGENTS.get(agent_key)
+        if agent is None or agent.headless is None:
+            console.print(f"[red]{agent_key} cannot run unattended.[/red]")
+            raise typer.Exit(1)
+        if agent not in installed:
+            console.print(
+                f"[red]{agent.name} is not installed[/red] (`{agent.cli_bin}` is not on PATH)."
+            )
+            raise typer.Exit(1)
+    else:
+        agent = installed[0]
+
+    plan = parallel_batch(path, limit=limit)
+    if only:
+        wanted = {token.lstrip("Ff0") or token for token in only}
+        chosen = [
+            feature
+            for feature in plan.batch + [held for held, _ in plan.excluded]
+            if feature.number in only or feature.number.lstrip("0") in wanted
+        ]
+        held_back = [f.number for f, _ in plan.excluded if f.number in only]
+        if held_back:
+            console.print(
+                f"[yellow]Warning:[/yellow] {', '.join(held_back)} was held back by the "
+                "claim plane. Its reason is a fact on disk, not a suggestion."
+            )
+    else:
+        chosen = plan.batch
+
+    if not chosen:
+        console.print("[yellow]Nothing to build.[/yellow] Run `react-dev parallel` to see why.")
+        raise typer.Exit(1)
+
+    workers = [
+        Worker(
+            number=feature.number,
+            slug=feature.slug,
+            branch=branch_for(feature.number, feature.slug),
+            prompt=worker_prompt(agent, feature.number, feature.slug),
+        )
+        for feature in chosen
+    ]
+
+    if dry_run:
+        for worker in workers:
+            argv = headless_command(
+                agent, worker.prompt, model=model or None, effort=effort or None
+            )
+            console.print(f"[cyan]{worker.slug}[/cyan] -> {worktree_for(path, worker.branch)}")
+            console.print(f"  [bright_black]{' '.join(argv[:-1])} <prompt>[/bright_black]")
+        raise typer.Exit(0)
+
+    # Read the working tree BEFORE touching .gitignore, or the rule this
+    # command just added is itself the uncommitted change it warns about.
+    dirty = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=path, capture_output=True, text=True, check=False
+    ).stdout.strip()
+
+    if ensure_ignored(path):
+        console.print("[bright_black]Added /.worktrees/ and /.ai/runs/ to .gitignore.[/bright_black]")
+
+    if dirty:
+        # A worktree branches from the last COMMIT. Anything only in the
+        # working tree -- a design file, a half-finished config -- does not
+        # exist for the workers, and one that cannot find it builds from the
+        # prose instead of stopping, which is the expensive kind of silent.
+        console.print(
+            "[yellow]Uncommitted changes.[/yellow] Workers branch from HEAD and will not "
+            f"see them ({len(dirty.splitlines())} file(s)). Commit first if they matter."
+        )
+
+    run_dir = new_run_dir(path)
+    console.print(
+        Panel(
+            f"{len(workers)} worker(s) · {agent.name} · logs in [cyan]{run_dir}[/cyan]",
+            border_style="cyan", padding=(0, 2),
+        )
+    )
+
+    with Live(_worker_table(workers, "Spawning"), console=console, refresh_per_second=4) as live:
+        def refresh(_worker: Worker, _event) -> None:
+            live.update(_worker_table(workers, f"{agent.name} workers"))
+
+        run_batch(
+            path, workers, agent, run_dir,
+            model=model or None, effort=effort or None, timeout=timeout, on_event=refresh,
+        )
+        live.update(_worker_table(workers, "Finished"))
+
+    landed = [w for w in workers if w.status == OK]
+    if len(landed) != len(workers):
+        console.print()
+    for worker in workers:
+        if worker.status != OK:
+            console.print(
+                f"[{STATUS_STYLE.get(worker.status, '')}]{worker.slug}: {worker.status}[/] — "
+                f"{worker.reason or 'see the transcript'}\n"
+                f"  [bright_black]{worker.log_dir}/transcript.md[/bright_black]"
+            )
+
+    console.print(
+        Panel(
+            f"{len(landed)} of {len(workers)} green.\n"
+            "Land them ONE AT A TIME: rebase onto main, `npm ci && npm run verify` in that "
+            "worktree, then react-ship. A clean merge is not a working one.",
+            title="Next", border_style="green" if landed else "yellow", padding=(1, 2),
+        )
+    )
+    raise typer.Exit(0 if len(landed) == len(workers) else 1)
+
+
+@app.command()
+def runs(
+    path: Path = typer.Argument(Path.cwd(), help="Project to look in."),
+    run_id: str = typer.Option("", "--id", help="Show one run's workers in full."),
+):
+    """What the workers did, and what happened to each of them."""
+    history = past_runs(path)
+    if not history:
+        console.print("[yellow]No runs yet.[/yellow] `react-dev dispatch` records them.")
+        raise typer.Exit(1)
+
+    if run_id:
+        match = next((run for run in history if run["id"] == run_id), None)
+        if match is None:
+            console.print(f"[red]No run {run_id}.[/red]")
+            raise typer.Exit(1)
+        table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+        table.add_column("Feature", no_wrap=True)
+        table.add_column("Status", no_wrap=True)
+        table.add_column("Time", justify="right")
+        table.add_column("Log / reason", style="bright_black", overflow="fold")
+        for worker in match.get("workers", []):
+            style = STATUS_STYLE.get(worker["status"], "")
+            table.add_row(
+                worker["slug"],
+                f"[{style}]{worker['status']}[/{style}]",
+                f"{worker.get('durationSeconds', 0):.0f}s",
+                worker.get("reason") or f"{worker.get('log')}/transcript.md",
+            )
+        console.print(Panel(table, title=f"{run_id} — {match.get('agentName', '?')}",
+                            border_style="cyan", padding=(1, 2)))
+        raise typer.Exit(0)
+
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    table.add_column("Run", no_wrap=True)
+    table.add_column("Agent", no_wrap=True)
+    table.add_column("Workers", justify="right")
+    table.add_column("Result", overflow="fold")
+    for run in history[:20]:
+        workers = run.get("workers", [])
+        if run.get("partial"):
+            table.add_row(run["id"], "?", "?", "[yellow]no manifest — killed mid-run[/yellow]")
+            continue
+        green = sum(1 for w in workers if w["status"] == OK)
+        bad = [f"{w['slug']}: {w['status']}" for w in workers if w["status"] != OK]
+        table.add_row(
+            run["id"], run.get("agentName", "?"), f"{green}/{len(workers)}",
+            ", ".join(bad) or "[green]all green[/green]",
+        )
+    console.print(Panel(table, title="Worker runs", border_style="cyan", padding=(1, 2)))
+    console.print("[bright_black]`react-dev runs --id <run>` for one run's workers.[/bright_black]")
+
+
 @app.command("next")
 def next_step(
     path: Path = typer.Argument(Path.cwd(), help="Project to work in."),
+    agent_key: str = typer.Option(
+        "", "--agent", help="claude | codex | gemini. Default: the first one installed."
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print the command, run nothing."),
 ):
     """Start a FRESH agent session on the next pipeline step.
@@ -825,12 +1108,25 @@ def next_step(
         raise typer.Exit()
 
     command = target.next_command
+    # Which agent, and therefore which invocation syntax. The pipeline is the
+    # same for all three; only the prefix differs, and that lives in agents.py.
+    installed = available_agents()
+    launcher = AGENTS.get(agent_key) if agent_key else (installed[0] if installed else None)
+    if launcher is None:
+        console.print(
+            "[yellow]No agent CLI on PATH.[/yellow] Start yours yourself and run the "
+            "next command below."
+        )
+        launcher = AGENTS["claude"]
+        missing = True
+    else:
+        missing = False
+
     # The priming message is what the fresh session starts from, so it has to
     # carry everything a blank context lacks: which feature, and where it is.
-    prompt = (
-        f"/{command}" if command.startswith("react-") and " " not in command
-        else f"/{command.split(' ')[0]} {' '.join(command.split(' ')[1:])}".strip()
-    )
+    skill, _, arguments = command.partition(" ")
+    name = skill.removeprefix("react-") if launcher.strips_prefix else skill
+    prompt = f"{launcher.invoke_prefix}{name} {arguments}".strip()
 
     # Every stage reads its input from `specs/`, which is why a fresh session
     # works at all -- but it is also the limit, and saying so is the difference
@@ -856,21 +1152,27 @@ def next_step(
     )
 
     if dry_run:
-        console.print(f"[bright_black]--dry-run:[/bright_black] claude {prompt!r}")
+        console.print(
+            f"[bright_black]--dry-run:[/bright_black] {launcher.cli_bin} {prompt!r}"
+        )
         raise typer.Exit()
 
-    claude = shutil.which("claude")
-    if claude is None:
+    if missing:
+        console.print(f"Run: [cyan]{prompt}[/cyan]")
+        raise typer.Exit(1)
+
+    binary = shutil.which(launcher.cli_bin or "")
+    if binary is None:
         console.print(
-            "[yellow]`claude` is not on PATH.[/yellow] Start your agent yourself and "
-            f"run: [cyan]{prompt}[/cyan]"
+            f"[yellow]`{launcher.cli_bin}` is not on PATH.[/yellow] Start your agent "
+            f"yourself and run: [cyan]{prompt}[/cyan]"
         )
         raise typer.Exit(1)
 
     # exec, not run: the agent replaces this process, so there is no wrapper
     # sitting between you and it, and Ctrl-C behaves the way you expect.
     os.chdir(path)
-    os.execv(claude, [claude, prompt])
+    os.execv(binary, [binary, prompt])
 
 
 def next_planned(features: list[FeatureStatus]) -> FeatureStatus | None:

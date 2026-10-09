@@ -15,6 +15,8 @@
 import i18n, { locales } from '@/config/i18n';
 import { THEMES, useTheme, type ThemeName } from '@/lib/theme';
 
+import type { Dock } from './dock';
+
 /** Readable names for the generated themes; a slug is not a label. */
 const THEME_LABELS: Record<ThemeName, string> = {
   default: 'Default',
@@ -22,7 +24,7 @@ const THEME_LABELS: Record<ThemeName, string> = {
   sunset: 'Sunset',
 };
 
-export function mountSwitchers(bar: HTMLElement, shadow: ShadowRoot): void {
+export function mountSwitchers(bar: HTMLElement, dock: Dock): void {
   // --- theme ------------------------------------------------------------
   const themeButton = document.createElement('button');
   themeButton.type = 'button';
@@ -31,8 +33,7 @@ export function mountSwitchers(bar: HTMLElement, shadow: ShadowRoot): void {
 
   const menu = document.createElement('div');
   menu.className = 'switch-menu';
-  menu.hidden = true;
-  shadow.appendChild(menu);
+  dock.add(menu);
 
   function renderThemeButton(): void {
     const { name, preference } = useTheme.getState();
@@ -78,8 +79,7 @@ export function mountSwitchers(bar: HTMLElement, shadow: ShadowRoot): void {
   }
 
   themeButton.addEventListener('click', () => {
-    const next = menu.hidden;
-    menu.hidden = !next;
+    const next = dock.toggle(menu);
     themeButton.dataset['active'] = String(next);
     if (next) buildMenu();
   });
